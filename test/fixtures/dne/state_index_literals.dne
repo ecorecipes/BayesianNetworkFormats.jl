@@ -1,0 +1,89 @@
+// ~->[DNET-1]->~
+
+// Hand-written grammar fixture: Netica state-index literals (#k) in evidence, probs and
+// functable; discrete nodes whose levels are state values; statetitles without states.
+
+bnet state_index_literals {
+autoupdate = TRUE;
+comment = "State-index literal fixture.";
+
+node Season {
+	discrete = TRUE;
+	states = (spring, summer, autumn);
+	levels = (0, 1, 2);
+	kind = NATURE;
+	parents = ();
+	probs = (0.3, 0.5, 0.2);
+	evidence = #1;
+	belief = (0, 1, 0);
+	};
+
+node Year {
+	discrete = TRUE;
+	statetitles = ("Year 1", "Year 5");
+	levels = (1, 5);
+	kind = NATURE;
+	parents = ();
+	probs = 
+		// Year 1  Year 5
+		  (#1);
+	evidence = #1;
+	value = 5;
+	};
+
+node SeasonCode {
+	discrete = TRUE;
+	states = (zero, one, two);
+	levels = (0, 1, 2);
+	kind = NATURE;
+	chance = DETERMIN;
+	parents = (Season);
+	functable = (0, 1, 2);
+	};
+
+node Rainfall {
+	discrete = FALSE;
+	levels = (0, 100, 200, INFINITY);
+	kind = NATURE;
+	chance = DETERMIN;
+	parents = (Season);
+	functable = (#0, #2, #1);
+	evidence = #0;
+	title = "Rainfall (mm)";
+	};
+
+node Growth {
+	discrete = TRUE;
+	states = (low, high);
+	kind = NATURE;
+	chance = CHANCE;
+	parents = (Season, Year);
+	probs = 
+		// low          high           // Season Year   
+		(((0.6,         0.4),          // spring Year 1 
+		  (#0)),                       // spring Year 5 
+		 ((0.2,         0.8),          // summer Year 1 
+		  (#1)),                       // summer Year 5 
+		 ((0.5,         0.5),          // autumn Year 1 
+		  (0.3,         0.7)));        // autumn Year 5 
+	};
+
+node Plant {
+	discrete = TRUE;
+	statetitles = ("Do nothing", "Plant trees");
+	kind = DECISION;
+	parents = (Year);
+	functable = 
+		
+		  (@undef);
+	evidence = #1;
+	};
+
+node Reward {
+	discrete = FALSE;
+	kind = UTILITY;
+	chance = DETERMIN;
+	parents = (Growth, Plant);
+	functable = (0, -10, 50, 40);
+	};
+};

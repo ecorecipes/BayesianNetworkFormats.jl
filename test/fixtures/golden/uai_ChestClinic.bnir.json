@@ -1,0 +1,131 @@
+{
+  "format": "bnir",
+  "version": 1,
+  "name": "",
+  "source_format": "uai",
+  "source": "ChestClinic.uai",
+  "variables": [
+    {
+      "id": "X0",
+      "title": "X0",
+      "kind": "chance",
+      "states": ["s0", "s1"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [2],
+        "values": [0.5, 0.5]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "X1",
+      "title": "X1",
+      "kind": "chance",
+      "states": ["s0", "s1"],
+      "parents": ["X0"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2],
+        "values": [0.6, 0.3, 0.4, 0.7]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "X2",
+      "title": "X2",
+      "kind": "chance",
+      "states": ["s0", "s1"],
+      "parents": ["X0"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2],
+        "values": [0.1, 0.01, 0.9, 0.99]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "X3",
+      "title": "X3",
+      "kind": "chance",
+      "states": ["s0", "s1"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [2],
+        "values": [0.01, 0.99]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "X4",
+      "title": "X4",
+      "kind": "chance",
+      "states": ["s0", "s1"],
+      "parents": ["X3"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2],
+        "values": [0.05, 0.01, 0.95, 0.99]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "X5",
+      "title": "X5",
+      "kind": "chance",
+      "states": ["s0", "s1"],
+      "parents": ["X4", "X2"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2, 2],
+        "values": [1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "X6",
+      "title": "X6",
+      "kind": "chance",
+      "states": ["s0", "s1"],
+      "parents": ["X5"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2],
+        "values": [0.98, 0.05, 0.02, 0.95]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "X7",
+      "title": "X7",
+      "kind": "chance",
+      "states": ["s0", "s1"],
+      "parents": ["X1", "X5"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2, 2],
+        "values": [0.9, 0.7, 0.8, 0.1, 0.1, 0.3, 0.2, 0.9]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    }
+  ],
+  "mau": [],
+  "extras": {}
+}

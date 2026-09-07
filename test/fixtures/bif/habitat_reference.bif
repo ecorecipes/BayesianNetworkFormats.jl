@@ -1,0 +1,64 @@
+network habitat_reference {
+}
+variable Climate {
+  type discrete [ 3 ] { dry, normal, wet };
+  property position = (100, 60) ;
+}
+variable Irrigation {
+  type discrete [ 2 ] { low, high };
+  property position = (300, 60) ;
+}
+variable SoilMoisture {
+  type discrete [ 3 ] { low, medium, high };
+  property position = (200, 150) ;
+}
+variable GrazingPressure {
+  type discrete [ 2 ] { low, high };
+  property position = (400, 150) ;
+}
+variable Vegetation {
+  type discrete [ 3 ] { sparse, moderate, dense };
+  property position = (300, 240) ;
+}
+variable HabitatQuality {
+  type discrete [ 2 ] { poor, good };
+  property position = (300, 330) ;
+}
+variable Occupancy {
+  type discrete [ 2 ] { absent, present };
+  property position = (300, 420) ;
+}
+probability ( Climate ) {
+  table 0.3, 0.5, 0.2;
+}
+probability ( Irrigation ) {
+  table 0.6, 0.4;
+}
+probability ( SoilMoisture | Climate, Irrigation ) {
+  (dry, low) 0.7, 0.25, 0.05;
+  (normal, low) 0.3, 0.5, 0.2;
+  (wet, low) 0.1, 0.4, 0.5;
+  (dry, high) 0.3, 0.5, 0.2;
+  (normal, high) 0.1, 0.4, 0.5;
+  (wet, high) 0.05, 0.25, 0.7;
+}
+probability ( GrazingPressure ) {
+  table 0.5, 0.5;
+}
+probability ( Vegetation | SoilMoisture, GrazingPressure ) {
+  (low, low) 0.6, 0.3, 0.1;
+  (medium, low) 0.2, 0.5, 0.3;
+  (high, low) 0.05, 0.3, 0.65;
+  (low, high) 0.8, 0.15, 0.05;
+  (medium, high) 0.4, 0.45, 0.15;
+  (high, high) 0.2, 0.5, 0.3;
+}
+probability ( HabitatQuality | Vegetation ) {
+  (sparse) 0.85, 0.15;
+  (moderate) 0.4, 0.6;
+  (dense) 0.15, 0.85;
+}
+probability ( Occupancy | HabitatQuality ) {
+  (poor) 0.8, 0.2;
+  (good) 0.25, 0.75;
+}

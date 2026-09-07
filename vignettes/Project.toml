@@ -1,0 +1,5 @@
+[deps]
+BayesianNetworkFormats = "590d4596-919e-4d5f-b4a5-097a6400eab8"
+
+[sources]
+BayesianNetworkFormats = {path = ".."}

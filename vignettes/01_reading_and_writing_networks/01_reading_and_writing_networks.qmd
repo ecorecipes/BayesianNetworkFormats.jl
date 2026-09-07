@@ -1,0 +1,177 @@
+---
+title: "Reading and writing networks"
+author: "Simon Frost"
+format:
+  html:
+    code-fold: false
+    toc: true
+  gfm:
+    toc: true
+  pdf: default
+engine: julia
+---
+
+## Overview
+
+`BayesianNetworkFormats.jl` reads six interchange formats (Netica `.dne`, GeNIe `.xdsl`,
+HUGIN `.net`, BIF, DSC and UAI) into a single intermediate representation, `NetworkIR`, and
+writes that representation back out in any of them. It depends on nothing else in the
+ecorecipes ecosystem, so it can be used on its own.
+
+This vignette reads the classic *asia* network [@LauritzenSpiegelhalter1988], taken from the
+bnlearn repository [@Scutari2010], in four formats, checks that the four files describe the
+same model, and writes it out in the remaining formats.
+
+## Setup
+
+Only `BayesianNetworkFormats.jl` is needed; it has no ecosystem dependencies. The four
+*asia* files are fixtures shipped with the package.
+
+```{julia}
+using BayesianNetworkFormats
+
+paths = Dict(ext => fixture_path("$(ext)/asia.$(ext)") for ext in ("bif", "net", "dsc", "uai"))
+asia = Dict(ext => read_network(path) for (ext, path) in paths)
+asia["bif"]
+```
+
+`fixture_path` returns the absolute path of a file committed under `test/fixtures/`, so the
+same models are available to downstream packages and to these vignettes.
+
+## The intermediate representation
+
+A `NetworkIR` holds a vector of `IRVariable`s in file order. Each variable has an id, a
+kind (chance, decision or utility), ordered states, ordered parents, and a table.
+
+```{julia}
+dysp = variable(asia["bif"], :dysp)
+```
+
+```{julia}
+dysp.parents, dysp.states
+```
+
+The table of a chance node has one axis per parent, in parent order, followed by the axis of
+the node itself, and every row sums to one. Here `dysp` has parents `bronc` and `either`, so
+`dysp.table[2, 1, :]` is the distribution of `dysp` given `bronc = no` and `either = yes`:
+
+```{julia}
+dysp.table[2, 1, :]
+```
+
+```{julia}
+size(dysp.table)
+```
+
+This convention is fixed by ADR 0002 of the ecosystem; the vignette *Axis conventions* goes
+through how each file format lays its numbers out and how they are converted.
+
+## Comparing the four files
+
+The `.bif`, `.net` and `.dsc` files are verbatim from bnlearn [@Scutari2010]; the `.uai`
+file was produced by this package's writer. `differences` lists everything that differs
+between two IRs and `isequivalent` is its boolean form. The network name is not part of
+every format (the HUGIN file has none), so it is excluded from the comparison:
+
+```{julia}
+for ext in ("net", "dsc", "uai")
+    println(rpad(ext, 5), isempty(differences(asia["bif"], asia[ext]; name=false)) ? "same model" :
+            differences(asia["bif"], asia[ext]; name=false))
+end
+```
+
+The UAI format only stores cardinalities and numbers. Variable and state names come from a
+sidecar file, `asia.uai.names`, that the writer produces and the reader picks up when present:
+
+```{julia}
+println(read(paths["uai"] * ".names", String))
+```
+
+## A brute-force sanity check
+
+`joint_distribution` multiplies every table over every joint configuration. It is slow
+(exponential in the number of variables) but has no room for an axis mistake, which makes
+it the oracle for the whole package: `P(dysp = yes) = 0.4360` is the published value for
+*asia* [@LauritzenSpiegelhalter1988].
+
+```{julia}
+marginal(asia["bif"], :dysp)
+```
+
+## Writing
+
+`write_network` picks the format from the extension (or takes a format singleton) and
+validates the IR first. Reading the result back gives an equivalent IR:
+
+```{julia}
+dir = mktempdir()
+for fmt in (NeticaDNE(), GeNIeXDSL(), HuginNET())
+    out = joinpath(dir, "asia." * string(format_name(fmt)))
+    write_network(out, asia["bif"])
+    back = read_network(out)
+    println(rpad(basename(out), 10), isequivalent(back, asia["bif"]) ? "round trip identical" :
+            differences(back, asia["bif"]))
+end
+```
+
+The Netica writer lays the table out the way Netica does [@NeticaFileFormats], with one
+parenthesis level per parent and a comment naming the parent configuration on every row:
+
+```{julia}
+lines = readlines(joinpath(dir, "asia.dne"))
+i = findfirst(==("node dysp {"), lines)
+println(join(lines[i:(i + 12)], "\n"))
+```
+
+## Format detection and strict mode
+
+`detect_format` looks at the extension and then at the first bytes of the file:
+
+```{julia}
+detect_format(paths["net"]), detect_format(paths["bif"])
+```
+
+Some node types have no counterpart in the IR: GeNIe equation and noisy-MAX nodes, Netica
+continuous nodes without discretisation levels, HUGIN continuous nodes. In strict mode (the
+default) they raise an `UnsupportedNodeError` naming the node:
+
+```{julia}
+try
+    read_network(fixture_path("xdsl/equation_node.xdsl"))
+catch e
+    showerror(stdout, e)
+end
+```
+
+With `strict=false` the node, and every node that depends on it, is dropped and recorded in
+`extras[:skipped]`, so the remaining model is still consistent:
+
+```{julia}
+lenient = read_network(fixture_path("xdsl/equation_node.xdsl"); strict=false)
+[v.id for v in lenient.variables], lenient.extras[:skipped]
+```
+
+## The package's own JSON
+
+`write_ir_json` serialises the IR with a fixed key order; the test suite keeps one such
+golden file per fixture. Tables are stored with their dimensions and values in Julia
+column-major order.
+
+```{julia}
+write_ir_json(joinpath(dir, "asia.bnir.json"), asia["bif"])
+println(join(readlines(joinpath(dir, "asia.bnir.json"))[1:22], "\n"))
+```
+
+## Summary
+
+Six interchange formats read into one `NetworkIR`, and any IR writes back out to any of
+them; `differences` and `isequivalent` compare two IRs, `joint_distribution` and `marginal`
+give a brute-force oracle, and `strict=false` drops node types the IR cannot represent. The
+next vignette, *Axis conventions*, takes the one thing that must be right for any of this
+to mean anything, the order in which each format flattens a conditional probability table,
+and shows the same network in all six files entry by entry.
+
+## References
+
+::: {#refs}
+:::

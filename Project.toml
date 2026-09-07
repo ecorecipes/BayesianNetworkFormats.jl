@@ -1,0 +1,22 @@
+name = "BayesianNetworkFormats"
+uuid = "590d4596-919e-4d5f-b4a5-097a6400eab8"
+version = "0.1.0"
+authors = ["Simon Frost"]
+
+[deps]
+EzXML = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+
+[compat]
+EzXML = "1"
+JSON3 = "1"
+Random = "1"
+Test = "1"
+julia = "1.12"
+
+[extras]
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Random", "Test"]

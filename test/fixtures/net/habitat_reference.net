@@ -1,0 +1,106 @@
+net
+{
+  node_size = (80 40);
+  name = "habitat_reference";
+}
+
+node Climate
+{
+  HR_Desc = "Regional climate regime.";
+  position = (100 60);
+  states = ("dry" "normal" "wet");
+}
+
+node Irrigation
+{
+  position = (300 60);
+  states = ("low" "high");
+}
+
+node SoilMoisture
+{
+  label = "Soil moisture";
+  position = (200 150);
+  states = ("low" "medium" "high");
+}
+
+node GrazingPressure
+{
+  label = "Grazing pressure";
+  position = (400 150);
+  states = ("low" "high");
+}
+
+node Vegetation
+{
+  position = (300 240);
+  states = ("sparse" "moderate" "dense");
+}
+
+node HabitatQuality
+{
+  label = "Habitat quality";
+  position = (300 330);
+  states = ("poor" "good");
+}
+
+node Occupancy
+{
+  position = (300 420);
+  states = ("absent" "present");
+}
+
+potential (Climate)
+{
+  data = 
+    (0.3 0.5 0.2);
+}
+
+potential (Irrigation)
+{
+  data = 
+    (0.6 0.4);
+}
+
+potential (SoilMoisture | Climate Irrigation)
+{
+  data = 
+    (((0.7 0.25 0.05)                   % Climate=dry Irrigation=low
+      (0.3 0.5 0.2))                    % Climate=dry Irrigation=high
+     ((0.3 0.5 0.2)                     % Climate=normal Irrigation=low
+      (0.1 0.4 0.5))                    % Climate=normal Irrigation=high
+     ((0.1 0.4 0.5)                     % Climate=wet Irrigation=low
+      (0.05 0.25 0.7)));                % Climate=wet Irrigation=high
+}
+
+potential (GrazingPressure)
+{
+  data = 
+    (0.5 0.5);
+}
+
+potential (Vegetation | SoilMoisture GrazingPressure)
+{
+  data = 
+    (((0.6 0.3 0.1)                     % SoilMoisture=low GrazingPressure=low
+      (0.8 0.15 0.05))                  % SoilMoisture=low GrazingPressure=high
+     ((0.2 0.5 0.3)                     % SoilMoisture=medium GrazingPressure=low
+      (0.4 0.45 0.15))                  % SoilMoisture=medium GrazingPressure=high
+     ((0.05 0.3 0.65)                   % SoilMoisture=high GrazingPressure=low
+      (0.2 0.5 0.3)));                  % SoilMoisture=high GrazingPressure=high
+}
+
+potential (HabitatQuality | Vegetation)
+{
+  data = 
+    ((0.85 0.15)                        % Vegetation=sparse
+     (0.4 0.6)                          % Vegetation=moderate
+     (0.15 0.85));                      % Vegetation=dense
+}
+
+potential (Occupancy | HabitatQuality)
+{
+  data = 
+    ((0.8 0.2)                          % HabitatQuality=poor
+     (0.25 0.75));                      % HabitatQuality=good
+}

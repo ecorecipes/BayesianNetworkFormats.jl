@@ -1,0 +1,10 @@
+# variable and state names for the UAI file; written by BayesianNetworkFormats.jl
+network asia
+asia yes no
+tub yes no
+smoke yes no
+lung yes no
+bronc yes no
+either yes no
+xray yes no
+dysp yes no

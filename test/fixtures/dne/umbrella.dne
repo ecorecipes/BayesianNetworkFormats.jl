@@ -1,0 +1,64 @@
+// ~->[DNET-1]->~
+
+// File created by BayesianNetworkFormats.jl
+
+bnet umbrella {
+autoupdate = TRUE;
+
+visual V1 {
+	defdispform = BELIEFBARS;
+	nodelabeling = NAMETITLE;
+	};
+
+node Weather {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (sunny, rainy);
+	parents = ();
+	probs = 
+		// sunny  rainy
+		  (0.7,   0.3);
+	visual V1 {
+		center = (100, 60);
+		};
+	};
+node Forecast {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (sunny, cloudy, rainy);
+	parents = (Weather);
+	probs = 
+		// sunny   cloudy  rainy    // Weather
+		  ((0.7,    0.2,    0.1),       // sunny
+		   (0.15,   0.25,   0.6));      // rainy
+	visual V1 {
+		center = (100, 180);
+		};
+	};
+node Umbrella {
+	kind = DECISION;
+	discrete = TRUE;
+	states = (take, leave);
+	parents = (Forecast);
+	title = "Take umbrella?";
+	visual V1 {
+		center = (300, 180);
+		};
+	};
+node U {
+	kind = UTILITY;
+	discrete = FALSE;
+	chance = DETERMIN;
+	parents = (Weather, Umbrella);
+	functable = 
+		// take   leave   // Weather
+		  ((20.0,  100.0),    // sunny
+		   (70.0,  0.0));     // rainy
+	title = "Satisfaction";
+	visual V1 {
+		center = (300, 60);
+		};
+	};
+};

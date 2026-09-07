@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-written fixture: an <equation> node (unsupported) between two cpt nodes. -->
+<smile version="1.0" id="equation_example" numsamples="10000">
+	<nodes>
+		<cpt id="Rain">
+			<state id="yes" />
+			<state id="no" />
+			<probabilities>0.3 0.7</probabilities>
+		</cpt>
+		<equation id="Runoff">
+			<parents>Rain</parents>
+			<definition lower="0" upper="100">Runoff=Choose(Rain,Normal(60,10),Normal(10,5))</definition>
+			<discretization>
+				<interval label="low" upper="30" />
+				<interval label="high" upper="100" />
+			</discretization>
+		</equation>
+		<cpt id="Flood">
+			<state id="yes" />
+			<state id="no" />
+			<parents>Runoff</parents>
+			<probabilities>0.05 0.95 0.6 0.4</probabilities>
+		</cpt>
+		<cpt id="Wet">
+			<state id="yes" />
+			<state id="no" />
+			<parents>Rain</parents>
+			<probabilities>0.9 0.1 0.2 0.8</probabilities>
+		</cpt>
+	</nodes>
+	<extensions>
+		<genie version="1.0" app="GeNIe 4.0" name="Equation example">
+			<node id="Rain">
+				<name>Rain</name>
+				<position>100 40 180 80</position>
+			</node>
+			<node id="Runoff">
+				<name>Runoff (mm)</name>
+				<position>100 140 180 180</position>
+			</node>
+			<node id="Flood">
+				<name>Flood</name>
+				<position>100 240 180 280</position>
+			</node>
+			<node id="Wet">
+				<name>Wet ground</name>
+				<position>300 140 380 180</position>
+			</node>
+		</genie>
+	</extensions>
+</smile>

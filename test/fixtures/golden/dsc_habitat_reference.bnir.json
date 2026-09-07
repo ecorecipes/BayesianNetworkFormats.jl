@@ -1,0 +1,116 @@
+{
+  "format": "bnir",
+  "version": 1,
+  "name": "habitat_reference",
+  "source_format": "dsc",
+  "source": "habitat_reference.dsc",
+  "variables": [
+    {
+      "id": "Climate",
+      "title": "Climate",
+      "kind": "chance",
+      "states": ["dry", "normal", "wet"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [3],
+        "values": [0.3, 0.5, 0.2]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Irrigation",
+      "title": "Irrigation",
+      "kind": "chance",
+      "states": ["low", "high"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [2],
+        "values": [0.6, 0.4]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "SoilMoisture",
+      "title": "SoilMoisture",
+      "kind": "chance",
+      "states": ["low", "medium", "high"],
+      "parents": ["Climate", "Irrigation"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 2, 3],
+        "values": [0.7, 0.3, 0.1, 0.3, 0.1, 0.05, 0.25, 0.5, 0.4, 0.5, 0.4, 0.25, 0.05, 0.2, 0.5, 0.2, 0.5, 0.7]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "GrazingPressure",
+      "title": "GrazingPressure",
+      "kind": "chance",
+      "states": ["low", "high"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [2],
+        "values": [0.5, 0.5]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Vegetation",
+      "title": "Vegetation",
+      "kind": "chance",
+      "states": ["sparse", "moderate", "dense"],
+      "parents": ["SoilMoisture", "GrazingPressure"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 2, 3],
+        "values": [0.6, 0.2, 0.05, 0.8, 0.4, 0.2, 0.3, 0.5, 0.3, 0.15, 0.45, 0.5, 0.1, 0.3, 0.65, 0.05, 0.15, 0.3]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "HabitatQuality",
+      "title": "HabitatQuality",
+      "kind": "chance",
+      "states": ["poor", "good"],
+      "parents": ["Vegetation"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 2],
+        "values": [0.85, 0.4, 0.15, 0.15, 0.6, 0.85]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Occupancy",
+      "title": "Occupancy",
+      "kind": "chance",
+      "states": ["absent", "present"],
+      "parents": ["HabitatQuality"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2],
+        "values": [0.8, 0.25, 0.2, 0.75]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    }
+  ],
+  "mau": [],
+  "extras": {}
+}

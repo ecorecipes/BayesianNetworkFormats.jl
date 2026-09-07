@@ -1,0 +1,79 @@
+{
+  "format": "bnir",
+  "version": 1,
+  "name": "determin_example",
+  "source_format": "dne",
+  "source": "determin_functable.dne",
+  "variables": [
+    {
+      "id": "A",
+      "title": "A",
+      "kind": "chance",
+      "states": ["a1", "a2"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [2],
+        "values": [0.4, 0.6]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "B",
+      "title": "B",
+      "kind": "chance",
+      "states": ["b1", "b2", "b3"],
+      "parents": ["A"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 3],
+        "values": [0.2, 0.5, 0.3, 0.25, 0.5, 0.25]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "C",
+      "title": "Deterministic combination",
+      "kind": "chance",
+      "states": ["low", "high"],
+      "parents": ["A", "B"],
+      "deterministic": true,
+      "table": {
+        "dims": [2, 3, 2],
+        "values": [1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "D",
+      "title": "D",
+      "kind": "chance",
+      "states": ["yes", "no"],
+      "parents": ["C"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2],
+        "values": [0.9, 0.0, 0.1, 1.0]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    }
+  ],
+  "mau": [],
+  "extras": {
+    "skipped": [
+      {
+        "id": "TITLE1",
+        "reason": "constant / title nodes are not part of the model",
+        "type": "CONSTANT"
+      }
+    ]
+  }
+}

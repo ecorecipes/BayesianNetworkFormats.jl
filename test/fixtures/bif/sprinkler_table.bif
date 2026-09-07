@@ -1,0 +1,24 @@
+// Hand-written fixture in the pgmpy "table" dialect: every probability block uses `table`,
+// enumerated in header order (child, parents...) with the LAST variable fastest.
+network sprinkler {
+}
+variable Rain {
+  type discrete [ 2 ] { yes, no };
+  property weight = 0.5 ;
+  property position = (100, 50) ;
+}
+variable Sprinkler {
+  type discrete [ 2 ] { on, off };
+}
+variable Grass {
+  type discrete [ 2 ] { wet, dry };
+}
+probability ( Rain ) {
+  table 0.2, 0.8 ;
+}
+probability ( Sprinkler | Rain ) {
+  table 0.01, 0.4, 0.99, 0.6 ;
+}
+probability ( Grass | Sprinkler, Rain ) {
+  table 0.99, 0.9, 0.8, 0.0, 0.01, 0.1, 0.2, 1.0 ;
+}

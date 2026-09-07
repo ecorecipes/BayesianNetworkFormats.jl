@@ -1,0 +1,9 @@
+# variable and state names for the UAI file; written by BayesianNetworkFormats.jl
+network habitat_reference
+Climate dry normal wet
+Irrigation low high
+SoilMoisture low medium high
+GrazingPressure low high
+Vegetation sparse moderate dense
+HabitatQuality poor good
+Occupancy absent present

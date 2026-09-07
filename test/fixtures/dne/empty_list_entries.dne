@@ -1,0 +1,73 @@
+// ~->[DNET-1]->~
+
+// Hand-written grammar fixture: empty entries in a Netica parenthesised list. Netica writes
+// nothing between two commas to mean "no value at this position". Two constructions appear
+// in real files (BNMA records 146 and 168) and both are exercised here:
+//   inputs = (, Weather);        an input link with no name of its own
+//   statetitles = (, , "...");   states with no display title
+// An empty entry holds its position, so the entries around it must not shift: the parents of
+// Growth stay (Season, Weather) and the states of Season stay in file order.
+
+bnet empty_list_entries {
+autoupdate = TRUE;
+comment = "Empty list entry fixture.";
+
+node Weather {
+	kind = NATURE;
+	discrete = TRUE;
+	states = (sunny, rainy);
+	parents = ();
+	probs = (0.6, 0.4);
+	};
+
+// statetitles name the states (no `states` list); the first title is empty, so that state
+// falls back to its generated id s0
+node Season {
+	kind = NATURE;
+	discrete = TRUE;
+	statetitles = (, "Summer", "Autumn");
+	parents = ();
+	probs = (0.5, 0.25, 0.25);
+	};
+
+// the same, with the gap in the middle: the states are Early, s1, Late
+node Phase {
+	kind = NATURE;
+	discrete = TRUE;
+	statetitles = ("Early", , "Late");
+	parents = ();
+	probs = (0.2, 0.3, 0.5);
+	};
+
+// `states` and `statetitles` together (the BNMA record 168 shape): the ids name the states
+// and the titles are display only, so the two empty titles are simply dropped
+node Trend {
+	kind = NATURE;
+	discrete = TRUE;
+	states = (increased, same_as_now, decreased);
+	statetitles = (, , "much less than now");
+	parents = (Weather);
+	probs =
+		// increased    same as now  decreased    // Weather
+		 ((0.5,         0.3,         0.2),        // sunny
+		  (0.1,         0.4,         0.5));       // rainy
+	};
+
+// an unnamed input link (the BNMA record 146 shape): slot 1 of `inputs` is empty and slot 2
+// is named Weather, aligned with the parents (Season, Weather)
+node Growth {
+	kind = NATURE;
+	discrete = TRUE;
+	states = (low, high);
+	inputs = (, Weather);
+	parents = (Season, Weather);
+	probs =
+		// low          high           // Season Weather
+		(((0.9,         0.1),          // s0     sunny
+		  (0.8,         0.2)),         // s0     rainy
+		 ((0.7,         0.3),          // Summer sunny
+		  (0.6,         0.4)),         // Summer rainy
+		 ((0.5,         0.5),          // Autumn sunny
+		  (0.4,         0.6)));        // Autumn rainy
+	};
+};

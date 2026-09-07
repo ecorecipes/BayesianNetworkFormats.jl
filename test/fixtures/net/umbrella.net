@@ -1,0 +1,54 @@
+net
+{
+  node_size = (80 40);
+  name = "umbrella";
+}
+
+node Weather
+{
+  position = (100 60);
+  states = ("sunny" "rainy");
+}
+
+node Forecast
+{
+  position = (100 180);
+  states = ("sunny" "cloudy" "rainy");
+}
+
+decision Umbrella
+{
+  label = "Take umbrella?";
+  position = (300 180);
+  states = ("take" "leave");
+}
+
+utility U
+{
+  label = "Satisfaction";
+  position = (300 60);
+}
+
+potential (Weather)
+{
+  data = 
+    (0.7 0.3);
+}
+
+potential (Forecast | Weather)
+{
+  data = 
+    ((0.7 0.2 0.1)                      % Weather=sunny
+     (0.15 0.25 0.6));                  % Weather=rainy
+}
+
+potential (Umbrella | Forecast)
+{
+}
+
+potential (U | Weather Umbrella)
+{
+  data = 
+    ((20.0 100.0)                       % Weather=sunny
+     (70.0 0.0));                       % Weather=rainy
+}

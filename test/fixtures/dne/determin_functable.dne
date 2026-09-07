@@ -1,0 +1,68 @@
+// ~->[DNET-1]->~
+
+// Hand-written fixture: a DETERMIN node with a functable of state names, an @imposs entry
+// and a CONSTANT title node that readers must skip.
+
+bnet determin_example {
+autoupdate = TRUE;
+
+node A {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (a1, a2);
+	parents = ();
+	probs = 
+		// a1           a2
+		  (0.4,         0.6);
+	};
+
+node B {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (b1, b2, b3);
+	parents = (A);
+	probs = 
+		// b1           b2           b3            // A
+		  ((0.2,        0.3,         0.5),         // a1
+		   (0.5,        0.25,        0.25));       // a2
+	};
+
+node C {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = DETERMIN;
+	states = (low, high);
+	parents = (A, B);
+	functable = 
+		                       // A  B
+		  ((low, low, high),   // a1
+		   (low, high, high)); // a2
+	title = "Deterministic combination";
+	};
+
+node D {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (yes, no);
+	parents = (C);
+	probs = 
+		// yes          no            // C
+		  ((0.9,        0.1),         // low
+		   (@imposs,    1));          // high
+	};
+
+node TITLE1 {
+	kind = CONSTANT;
+	discrete = TRUE;
+	chance = CHANCE;
+	numstates = 1;
+	parents = ();
+	title = "A deterministic example";
+	visual V1 {
+		center = (300, 30);
+		};
+	};
+};

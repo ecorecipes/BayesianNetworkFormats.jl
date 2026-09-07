@@ -1,0 +1,90 @@
+{
+  "format": "bnir",
+  "version": 1,
+  "name": "empty_list_entries",
+  "source_format": "dne",
+  "source": "empty_list_entries.dne",
+  "variables": [
+    {
+      "id": "Weather",
+      "title": "Weather",
+      "kind": "chance",
+      "states": ["sunny", "rainy"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [2],
+        "values": [0.6, 0.4]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Season",
+      "title": "Season",
+      "kind": "chance",
+      "states": ["s0", "Summer", "Autumn"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [3],
+        "values": [0.5, 0.25, 0.25]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Phase",
+      "title": "Phase",
+      "kind": "chance",
+      "states": ["Early", "s1", "Late"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [3],
+        "values": [0.2, 0.3, 0.5]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Trend",
+      "title": "Trend",
+      "kind": "chance",
+      "states": ["increased", "same_as_now", "decreased"],
+      "parents": ["Weather"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 3],
+        "values": [0.5, 0.1, 0.3, 0.4, 0.2, 0.5]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Growth",
+      "title": "Growth",
+      "kind": "chance",
+      "states": ["low", "high"],
+      "parents": ["Season", "Weather"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 2, 2],
+        "values": [0.9, 0.7, 0.5, 0.8, 0.6, 0.4, 0.1, 0.3, 0.5, 0.2, 0.4, 0.6]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {
+        "inputs": ["", "Weather"]
+      }
+    }
+  ],
+  "mau": [],
+  "extras": {
+    "comment": "Empty list entry fixture."
+  }
+}

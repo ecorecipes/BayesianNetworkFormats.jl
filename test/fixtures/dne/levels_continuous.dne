@@ -1,0 +1,43 @@
+// ~->[DNET-1]->~
+
+// Hand-written fixture: a continuous node discretised with `levels`, a multi-line comment
+// using backslash-newline continuation, and a nested probs list.
+
+bnet levels_example {
+autoupdate = TRUE;
+
+node Temperature {
+	kind = NATURE;
+	discrete = FALSE;
+	chance = CHANCE;
+	levels = (-INFINITY, 10, 20, INFINITY);
+	parents = ();
+	probs = 
+		// < 10         10 to 20     >= 20
+		  (0.25,        0.5,         0.25);
+	title = "Temperature (C)";
+	comment = "A continuous node discretised\n\
+		into three intervals with a \"quoted\" word.";
+	whenchanged = 1;
+	visual V1 {
+		center = (120, 60);
+		height = 1;
+		};
+	};
+
+node Activity {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (low, high);
+	parents = (Temperature);
+	probs = 
+		// low          high          // Temperature
+		  ((0.8,        0.2),         // < 10
+		   (0.4,        0.6),         // 10 to 20
+		   (0.1,        0.9));        // >= 20
+	visual V1 {
+		center = (120, 150);
+		};
+	};
+};

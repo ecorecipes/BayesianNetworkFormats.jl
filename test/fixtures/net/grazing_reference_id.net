@@ -1,0 +1,182 @@
+net
+{
+  node_size = (80 40);
+  name = "grazing_reference_id";
+}
+
+node Climate
+{
+  position = (100 60);
+  states = ("dry" "normal" "wet");
+}
+
+node ClimateForecast
+{
+  label = "Climate forecast";
+  position = (100 150);
+  states = ("dry" "normal" "wet");
+}
+
+node SoilMoisture
+{
+  label = "Soil moisture";
+  position = (250 150);
+  states = ("low" "medium" "high");
+}
+
+node CurrentVegetation
+{
+  label = "Current vegetation";
+  position = (400 60);
+  states = ("sparse" "moderate" "dense");
+}
+
+decision GrazingManagement
+{
+  label = "Grazing management";
+  HR_Desc = "Information arcs from the forecast and the current vegetation survey.";
+  position = (100 240);
+  states = ("exclude" "reduce" "maintain");
+}
+
+node GrazingPressure
+{
+  label = "Grazing pressure";
+  HR_Desc = "Uncertain implementation of the management decision.";
+  position = (250 240);
+  states = ("low" "high");
+}
+
+node Vegetation
+{
+  position = (400 240);
+  states = ("sparse" "moderate" "dense");
+}
+
+node HabitatQuality
+{
+  label = "Habitat quality";
+  position = (400 330);
+  states = ("poor" "good");
+}
+
+node Occupancy
+{
+  position = (400 420);
+  states = ("absent" "present");
+}
+
+node Biodiversity
+{
+  position = (400 510);
+  states = ("low" "high");
+}
+
+utility ConservationBenefit
+{
+  label = "Conservation benefit";
+  position = (400 600);
+}
+
+utility ManagementCost
+{
+  label = "Management cost";
+  position = (100 600);
+}
+
+potential (Climate)
+{
+  data = 
+    (0.3 0.5 0.2);
+}
+
+potential (ClimateForecast | Climate)
+{
+  data = 
+    ((0.7 0.2 0.1)                      % Climate=dry
+     (0.15 0.7 0.15)                    % Climate=normal
+     (0.1 0.2 0.7));                    % Climate=wet
+}
+
+potential (SoilMoisture | Climate)
+{
+  data = 
+    ((0.7 0.25 0.05)                    % Climate=dry
+     (0.3 0.5 0.2)                      % Climate=normal
+     (0.05 0.3 0.65));                  % Climate=wet
+}
+
+potential (CurrentVegetation)
+{
+  data = 
+    (0.3 0.4 0.3);
+}
+
+potential (GrazingManagement | ClimateForecast CurrentVegetation)
+{
+}
+
+potential (GrazingPressure | GrazingManagement)
+{
+  data = 
+    ((0.95 0.05)                        % GrazingManagement=exclude
+     (0.6 0.4)                          % GrazingManagement=reduce
+     (0.15 0.85));                      % GrazingManagement=maintain
+}
+
+potential (Vegetation | SoilMoisture GrazingPressure CurrentVegetation)
+{
+  data = 
+    ((((0.5 0.35 0.15)                  % SoilMoisture=low GrazingPressure=low CurrentVegetation=sparse
+       (0.3 0.4 0.3)                    % SoilMoisture=low GrazingPressure=low CurrentVegetation=moderate
+       (0.15 0.35 0.5))                 % SoilMoisture=low GrazingPressure=low CurrentVegetation=dense
+      ((0.85 0.12 0.03)                 % SoilMoisture=low GrazingPressure=high CurrentVegetation=sparse
+       (0.7 0.25 0.05)                  % SoilMoisture=low GrazingPressure=high CurrentVegetation=moderate
+       (0.5 0.35 0.15)))                % SoilMoisture=low GrazingPressure=high CurrentVegetation=dense
+     (((0.3 0.4 0.3)                    % SoilMoisture=medium GrazingPressure=low CurrentVegetation=sparse
+       (0.15 0.35 0.5)                  % SoilMoisture=medium GrazingPressure=low CurrentVegetation=moderate
+       (0.05 0.25 0.7))                 % SoilMoisture=medium GrazingPressure=low CurrentVegetation=dense
+      ((0.7 0.25 0.05)                  % SoilMoisture=medium GrazingPressure=high CurrentVegetation=sparse
+       (0.5 0.35 0.15)                  % SoilMoisture=medium GrazingPressure=high CurrentVegetation=moderate
+       (0.3 0.4 0.3)))                  % SoilMoisture=medium GrazingPressure=high CurrentVegetation=dense
+     (((0.15 0.35 0.5)                  % SoilMoisture=high GrazingPressure=low CurrentVegetation=sparse
+       (0.05 0.25 0.7)                  % SoilMoisture=high GrazingPressure=low CurrentVegetation=moderate
+       (0.03 0.12 0.85))                % SoilMoisture=high GrazingPressure=low CurrentVegetation=dense
+      ((0.5 0.35 0.15)                  % SoilMoisture=high GrazingPressure=high CurrentVegetation=sparse
+       (0.3 0.4 0.3)                    % SoilMoisture=high GrazingPressure=high CurrentVegetation=moderate
+       (0.15 0.35 0.5))));              % SoilMoisture=high GrazingPressure=high CurrentVegetation=dense
+}
+
+potential (HabitatQuality | Vegetation)
+{
+  data = 
+    ((0.85 0.15)                        % Vegetation=sparse
+     (0.4 0.6)                          % Vegetation=moderate
+     (0.15 0.85));                      % Vegetation=dense
+}
+
+potential (Occupancy | HabitatQuality)
+{
+  data = 
+    ((0.8 0.2)                          % HabitatQuality=poor
+     (0.25 0.75));                      % HabitatQuality=good
+}
+
+potential (Biodiversity | Occupancy)
+{
+  data = 
+    ((0.9 0.1)                          % Occupancy=absent
+     (0.3 0.7));                        % Occupancy=present
+}
+
+potential (ConservationBenefit | Biodiversity)
+{
+  data = 
+    (0.0 100.0);
+}
+
+potential (ManagementCost | GrazingManagement)
+{
+  data = 
+    (-40.0 -15.0 0.0);
+}

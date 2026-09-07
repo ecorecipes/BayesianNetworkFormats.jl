@@ -1,0 +1,45 @@
+{
+  "format": "bnir",
+  "version": 1,
+  "name": "levels_named_states",
+  "source_format": "dne",
+  "source": "levels_named_states.dne",
+  "variables": [
+    {
+      "id": "Rainfall",
+      "title": "Annual rainfall (mm)",
+      "kind": "chance",
+      "states": ["Dry", "Normal", "Wet"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [3],
+        "values": [0.25, 0.5, 0.25]
+      },
+      "position": [120.0, 60.0],
+      "comment": "",
+      "extras": {
+        "levels": [0.0, 50.0, 150.0, Infinity]
+      }
+    },
+    {
+      "id": "Growth",
+      "title": "Plant growth",
+      "kind": "chance",
+      "states": ["poor", "good"],
+      "parents": ["Rainfall"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 2],
+        "values": [0.8, 0.3, 0.6, 0.2, 0.7, 0.4]
+      },
+      "position": [120.0, 180.0],
+      "comment": "",
+      "extras": {}
+    }
+  ],
+  "mau": [],
+  "extras": {
+    "title": "Named continuous intervals"
+  }
+}

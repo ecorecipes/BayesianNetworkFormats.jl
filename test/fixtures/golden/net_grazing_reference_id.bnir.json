@@ -1,0 +1,188 @@
+{
+  "format": "bnir",
+  "version": 1,
+  "name": "grazing_reference_id",
+  "source_format": "net",
+  "source": "grazing_reference_id.net",
+  "variables": [
+    {
+      "id": "Climate",
+      "title": "Climate",
+      "kind": "chance",
+      "states": ["dry", "normal", "wet"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [3],
+        "values": [0.3, 0.5, 0.2]
+      },
+      "position": [100.0, 60.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "ClimateForecast",
+      "title": "Climate forecast",
+      "kind": "chance",
+      "states": ["dry", "normal", "wet"],
+      "parents": ["Climate"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 3],
+        "values": [0.7, 0.15, 0.1, 0.2, 0.7, 0.2, 0.1, 0.15, 0.7]
+      },
+      "position": [100.0, 150.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "SoilMoisture",
+      "title": "Soil moisture",
+      "kind": "chance",
+      "states": ["low", "medium", "high"],
+      "parents": ["Climate"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 3],
+        "values": [0.7, 0.3, 0.05, 0.25, 0.5, 0.3, 0.05, 0.2, 0.65]
+      },
+      "position": [250.0, 150.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "CurrentVegetation",
+      "title": "Current vegetation",
+      "kind": "chance",
+      "states": ["sparse", "moderate", "dense"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [3],
+        "values": [0.3, 0.4, 0.3]
+      },
+      "position": [400.0, 60.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "GrazingManagement",
+      "title": "Grazing management",
+      "kind": "decision",
+      "states": ["exclude", "reduce", "maintain"],
+      "parents": ["ClimateForecast", "CurrentVegetation"],
+      "deterministic": false,
+      "table": null,
+      "position": [100.0, 240.0],
+      "comment": "Information arcs from the forecast and the current vegetation survey.",
+      "extras": {}
+    },
+    {
+      "id": "GrazingPressure",
+      "title": "Grazing pressure",
+      "kind": "chance",
+      "states": ["low", "high"],
+      "parents": ["GrazingManagement"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 2],
+        "values": [0.95, 0.6, 0.15, 0.05, 0.4, 0.85]
+      },
+      "position": [250.0, 240.0],
+      "comment": "Uncertain implementation of the management decision.",
+      "extras": {}
+    },
+    {
+      "id": "Vegetation",
+      "title": "Vegetation",
+      "kind": "chance",
+      "states": ["sparse", "moderate", "dense"],
+      "parents": ["SoilMoisture", "GrazingPressure", "CurrentVegetation"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 2, 3, 3],
+        "values": [0.5, 0.3, 0.15, 0.85, 0.7, 0.5, 0.3, 0.15, 0.05, 0.7, 0.5, 0.3, 0.15, 0.05, 0.03, 0.5, 0.3, 0.15, 0.35, 0.4, 0.35, 0.12, 0.25, 0.35, 0.4, 0.35, 0.25, 0.25, 0.35, 0.4, 0.35, 0.25, 0.12, 0.35, 0.4, 0.35, 0.15, 0.3, 0.5, 0.03, 0.05, 0.15, 0.3, 0.5, 0.7, 0.05, 0.15, 0.3, 0.5, 0.7, 0.85, 0.15, 0.3, 0.5]
+      },
+      "position": [400.0, 240.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "HabitatQuality",
+      "title": "Habitat quality",
+      "kind": "chance",
+      "states": ["poor", "good"],
+      "parents": ["Vegetation"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 2],
+        "values": [0.85, 0.4, 0.15, 0.15, 0.6, 0.85]
+      },
+      "position": [400.0, 330.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Occupancy",
+      "title": "Occupancy",
+      "kind": "chance",
+      "states": ["absent", "present"],
+      "parents": ["HabitatQuality"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2],
+        "values": [0.8, 0.25, 0.2, 0.75]
+      },
+      "position": [400.0, 420.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Biodiversity",
+      "title": "Biodiversity",
+      "kind": "chance",
+      "states": ["low", "high"],
+      "parents": ["Occupancy"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2],
+        "values": [0.9, 0.3, 0.1, 0.7]
+      },
+      "position": [400.0, 510.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "ConservationBenefit",
+      "title": "Conservation benefit",
+      "kind": "utility",
+      "states": [],
+      "parents": ["Biodiversity"],
+      "deterministic": false,
+      "table": {
+        "dims": [2],
+        "values": [0.0, 100.0]
+      },
+      "position": [400.0, 600.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "ManagementCost",
+      "title": "Management cost",
+      "kind": "utility",
+      "states": [],
+      "parents": ["GrazingManagement"],
+      "deterministic": false,
+      "table": {
+        "dims": [3],
+        "values": [-40.0, -15.0, 0.0]
+      },
+      "position": [100.0, 600.0],
+      "comment": "",
+      "extras": {}
+    }
+  ],
+  "mau": [],
+  "extras": {}
+}

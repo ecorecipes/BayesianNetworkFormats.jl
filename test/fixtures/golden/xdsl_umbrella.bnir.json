@@ -1,0 +1,68 @@
+{
+  "format": "bnir",
+  "version": 1,
+  "name": "umbrella",
+  "source_format": "xdsl",
+  "source": "umbrella.xdsl",
+  "variables": [
+    {
+      "id": "Weather",
+      "title": "Weather",
+      "kind": "chance",
+      "states": ["sunny", "rainy"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [2],
+        "values": [0.7, 0.3]
+      },
+      "position": [100.0, 60.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Forecast",
+      "title": "Forecast",
+      "kind": "chance",
+      "states": ["sunny", "cloudy", "rainy"],
+      "parents": ["Weather"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 3],
+        "values": [0.7, 0.15, 0.2, 0.25, 0.1, 0.6]
+      },
+      "position": [100.0, 180.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Umbrella",
+      "title": "Take umbrella?",
+      "kind": "decision",
+      "states": ["take", "leave"],
+      "parents": ["Forecast"],
+      "deterministic": false,
+      "table": null,
+      "position": [300.0, 180.0],
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "U",
+      "title": "Satisfaction",
+      "kind": "utility",
+      "states": [],
+      "parents": ["Weather", "Umbrella"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2],
+        "values": [20.0, 70.0, 100.0, 0.0]
+      },
+      "position": [300.0, 60.0],
+      "comment": "",
+      "extras": {}
+    }
+  ],
+  "mau": [],
+  "extras": {}
+}

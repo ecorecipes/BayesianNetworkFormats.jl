@@ -1,0 +1,201 @@
+// ~->[DNET-1]->~
+
+// File created by BayesianNetworkFormats.jl
+
+bnet grazing_reference_id {
+autoupdate = TRUE;
+comment = "SPEC section 46 reference ecological influence diagram.";
+
+visual V1 {
+	defdispform = BELIEFBARS;
+	nodelabeling = NAMETITLE;
+	};
+
+node Climate {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (dry, normal, wet);
+	parents = ();
+	probs = 
+		// dry     normal  wet
+		  (0.3,    0.5,    0.2);
+	visual V1 {
+		center = (100, 60);
+		};
+	};
+node ClimateForecast {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (dry, normal, wet);
+	parents = (Climate);
+	probs = 
+		// dry     normal  wet      // Climate
+		  ((0.7,    0.2,    0.1),       // dry
+		   (0.15,   0.7,    0.15),      // normal
+		   (0.1,    0.2,    0.7));      // wet
+	title = "Climate forecast";
+	visual V1 {
+		center = (100, 150);
+		};
+	};
+node SoilMoisture {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (low, medium, high);
+	parents = (Climate);
+	probs = 
+		// low     medium  high     // Climate
+		  ((0.7,    0.25,   0.05),      // dry
+		   (0.3,    0.5,    0.2),       // normal
+		   (0.05,   0.3,    0.65));     // wet
+	title = "Soil moisture";
+	visual V1 {
+		center = (250, 150);
+		};
+	};
+node CurrentVegetation {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (sparse, moderate, dense);
+	parents = ();
+	probs = 
+		// sparse    moderate  dense
+		  (0.3,      0.4,      0.3);
+	title = "Current vegetation";
+	visual V1 {
+		center = (400, 60);
+		};
+	};
+node GrazingManagement {
+	kind = DECISION;
+	discrete = TRUE;
+	states = (exclude, reduce, maintain);
+	parents = (ClimateForecast, CurrentVegetation);
+	title = "Grazing management";
+	comment = "Information arcs from the forecast and the current vegetation survey.";
+	visual V1 {
+		center = (100, 240);
+		};
+	};
+node GrazingPressure {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (low, high);
+	parents = (GrazingManagement);
+	probs = 
+		// low   high   // GrazingManagement
+		  ((0.95, 0.05),    // exclude
+		   (0.6,  0.4),     // reduce
+		   (0.15, 0.85));   // maintain
+	title = "Grazing pressure";
+	comment = "Uncertain implementation of the management decision.";
+	visual V1 {
+		center = (250, 240);
+		};
+	};
+node Vegetation {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (sparse, moderate, dense);
+	parents = (SoilMoisture, GrazingPressure, CurrentVegetation);
+	probs = 
+		// sparse    moderate  dense      // SoilMoisture GrazingPressure CurrentVegetation
+		  ((((0.5,      0.35,     0.15),        // low          low             sparse
+		     (0.3,      0.4,      0.3),         // low          low             moderate
+		     (0.15,     0.35,     0.5)),        // low          low             dense
+		    ((0.85,     0.12,     0.03),        // low          high            sparse
+		     (0.7,      0.25,     0.05),        // low          high            moderate
+		     (0.5,      0.35,     0.15))),      // low          high            dense
+		   (((0.3,      0.4,      0.3),         // medium       low             sparse
+		     (0.15,     0.35,     0.5),         // medium       low             moderate
+		     (0.05,     0.25,     0.7)),        // medium       low             dense
+		    ((0.7,      0.25,     0.05),        // medium       high            sparse
+		     (0.5,      0.35,     0.15),        // medium       high            moderate
+		     (0.3,      0.4,      0.3))),       // medium       high            dense
+		   (((0.15,     0.35,     0.5),         // high         low             sparse
+		     (0.05,     0.25,     0.7),         // high         low             moderate
+		     (0.03,     0.12,     0.85)),       // high         low             dense
+		    ((0.5,      0.35,     0.15),        // high         high            sparse
+		     (0.3,      0.4,      0.3),         // high         high            moderate
+		     (0.15,     0.35,     0.5))));      // high         high            dense
+	visual V1 {
+		center = (400, 240);
+		};
+	};
+node HabitatQuality {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (poor, good);
+	parents = (Vegetation);
+	probs = 
+		// poor  good   // Vegetation
+		  ((0.85, 0.15),    // sparse
+		   (0.4,  0.6),     // moderate
+		   (0.15, 0.85));   // dense
+	title = "Habitat quality";
+	visual V1 {
+		center = (400, 330);
+		};
+	};
+node Occupancy {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (absent, present);
+	parents = (HabitatQuality);
+	probs = 
+		// absent   present   // HabitatQuality
+		  ((0.8,     0.2),        // poor
+		   (0.25,    0.75));      // good
+	visual V1 {
+		center = (400, 420);
+		};
+	};
+node Biodiversity {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (low, high);
+	parents = (Occupancy);
+	probs = 
+		// low   high   // Occupancy
+		  ((0.9,  0.1),     // absent
+		   (0.3,  0.7));    // present
+	visual V1 {
+		center = (400, 510);
+		};
+	};
+node ConservationBenefit {
+	kind = UTILITY;
+	discrete = FALSE;
+	chance = DETERMIN;
+	parents = (Biodiversity);
+	functable = 
+		// low    high
+		  (0.0,   100.0);
+	title = "Conservation benefit";
+	visual V1 {
+		center = (400, 600);
+		};
+	};
+node ManagementCost {
+	kind = UTILITY;
+	discrete = FALSE;
+	chance = DETERMIN;
+	parents = (GrazingManagement);
+	functable = 
+		// exclude   reduce    maintain
+		  (-40.0,    -15.0,    0.0);
+	title = "Management cost";
+	visual V1 {
+		center = (100, 600);
+		};
+	};
+};

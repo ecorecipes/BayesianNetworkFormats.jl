@@ -1,0 +1,50 @@
+// ~->[DNET-1]->~
+
+// Hand-written fixture: a continuous node that carries BOTH `states` and `levels`, which
+// Netica writes when the intervals of a continuous variable have names of their own.
+// The reader keeps the names in `states` and the boundaries in `extras[:levels]`; the
+// writer must emit both, or the states would be renamed to the interval labels
+// ("0 to 50", ...) on the next read.
+
+bnet levels_named_states {
+autoupdate = TRUE;
+title = "Named continuous intervals";
+
+visual V1 {
+	defdispform = BELIEFBARS;
+	nodelabeling = NAMETITLE;
+	};
+
+node Rainfall {
+	kind = NATURE;
+	discrete = FALSE;
+	chance = CHANCE;
+	states = (Dry, Normal, Wet);
+	levels = (0, 50, 150, INFINITY);
+	parents = ();
+	probs = 
+		// Dry    Normal  Wet
+		  (0.25,  0.5,    0.25);
+	title = "Annual rainfall (mm)";
+	visual V1 {
+		center = (120, 60);
+		};
+	};
+
+node Growth {
+	kind = NATURE;
+	discrete = TRUE;
+	chance = CHANCE;
+	states = (poor, good);
+	parents = (Rainfall);
+	probs = 
+		// poor   good          // Rainfall
+		  ((0.8,  0.2),         // Dry
+		   (0.3,  0.7),         // Normal
+		   (0.6,  0.4));        // Wet
+	title = "Plant growth";
+	visual V1 {
+		center = (120, 180);
+		};
+	};
+};

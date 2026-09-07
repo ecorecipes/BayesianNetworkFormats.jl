@@ -1,0 +1,128 @@
+{
+  "format": "bnir",
+  "version": 1,
+  "name": "state_index_literals",
+  "source_format": "dne",
+  "source": "state_index_literals.dne",
+  "variables": [
+    {
+      "id": "Season",
+      "title": "Season",
+      "kind": "chance",
+      "states": ["spring", "summer", "autumn"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [3],
+        "values": [0.3, 0.5, 0.2]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {
+        "evidence": "summer",
+        "state_values": [0.0, 1.0, 2.0]
+      }
+    },
+    {
+      "id": "Year",
+      "title": "Year",
+      "kind": "chance",
+      "states": ["Year 1", "Year 5"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [2],
+        "values": [0.0, 1.0]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {
+        "evidence": "Year 5",
+        "state_values": [1.0, 5.0]
+      }
+    },
+    {
+      "id": "SeasonCode",
+      "title": "SeasonCode",
+      "kind": "chance",
+      "states": ["zero", "one", "two"],
+      "parents": ["Season"],
+      "deterministic": true,
+      "table": {
+        "dims": [3, 3],
+        "values": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {
+        "state_values": [0.0, 1.0, 2.0]
+      }
+    },
+    {
+      "id": "Rainfall",
+      "title": "Rainfall (mm)",
+      "kind": "chance",
+      "states": ["0 to 100", "100 to 200", ">= 200"],
+      "parents": ["Season"],
+      "deterministic": true,
+      "table": {
+        "dims": [3, 3],
+        "values": [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {
+        "evidence": "0 to 100",
+        "levels": [0.0, 100.0, 200.0, Infinity]
+      }
+    },
+    {
+      "id": "Growth",
+      "title": "Growth",
+      "kind": "chance",
+      "states": ["low", "high"],
+      "parents": ["Season", "Year"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 2, 2],
+        "values": [0.6, 0.2, 0.5, 1.0, 0.0, 0.3, 0.4, 0.8, 0.5, 0.0, 1.0, 0.7]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    },
+    {
+      "id": "Plant",
+      "title": "Plant",
+      "kind": "decision",
+      "states": ["Do nothing", "Plant trees"],
+      "parents": ["Year"],
+      "deterministic": false,
+      "table": null,
+      "position": null,
+      "comment": "",
+      "extras": {
+        "evidence": "Plant trees"
+      }
+    },
+    {
+      "id": "Reward",
+      "title": "Reward",
+      "kind": "utility",
+      "states": [],
+      "parents": ["Growth", "Plant"],
+      "deterministic": false,
+      "table": {
+        "dims": [2, 2],
+        "values": [0.0, 50.0, -10.0, 40.0]
+      },
+      "position": null,
+      "comment": "",
+      "extras": {}
+    }
+  ],
+  "mau": [],
+  "extras": {
+    "comment": "State-index literal fixture."
+  }
+}

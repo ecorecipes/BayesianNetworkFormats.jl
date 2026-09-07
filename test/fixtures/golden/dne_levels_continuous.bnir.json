@@ -1,0 +1,43 @@
+{
+  "format": "bnir",
+  "version": 1,
+  "name": "levels_example",
+  "source_format": "dne",
+  "source": "levels_continuous.dne",
+  "variables": [
+    {
+      "id": "Temperature",
+      "title": "Temperature (C)",
+      "kind": "chance",
+      "states": ["< 10", "10 to 20", ">= 20"],
+      "parents": [],
+      "deterministic": false,
+      "table": {
+        "dims": [3],
+        "values": [0.25, 0.5, 0.25]
+      },
+      "position": [120.0, 60.0],
+      "comment": "A continuous node discretised\ninto three intervals with a \"quoted\" word.",
+      "extras": {
+        "levels": [-Infinity, 10.0, 20.0, Infinity]
+      }
+    },
+    {
+      "id": "Activity",
+      "title": "Activity",
+      "kind": "chance",
+      "states": ["low", "high"],
+      "parents": ["Temperature"],
+      "deterministic": false,
+      "table": {
+        "dims": [3, 2],
+        "values": [0.8, 0.4, 0.1, 0.2, 0.6, 0.9]
+      },
+      "position": [120.0, 150.0],
+      "comment": "",
+      "extras": {}
+    }
+  ],
+  "mau": [],
+  "extras": {}
+}

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<smile version="1.0" id="umbrella" numsamples="10000">
+  <nodes>
+    <cpt id="Weather">
+      <state id="sunny"/>
+      <state id="rainy"/>
+      <probabilities>0.7 0.3</probabilities>
+    </cpt>
+    <cpt id="Forecast">
+      <state id="sunny"/>
+      <state id="cloudy"/>
+      <state id="rainy"/>
+      <parents>Weather</parents>
+      <probabilities>0.7 0.2 0.1 0.15 0.25 0.6</probabilities>
+    </cpt>
+    <decision id="Umbrella">
+      <state id="take"/>
+      <state id="leave"/>
+      <parents>Forecast</parents>
+    </decision>
+    <utility id="U">
+      <parents>Weather Umbrella</parents>
+      <utilities>20.0 100.0 70.0 0.0</utilities>
+    </utility>
+  </nodes>
+  <extensions>
+    <genie version="1.0" app="BayesianNetworkFormats.jl" name="umbrella">
+      <node id="Weather">
+        <name>Weather</name>
+        <position>60 40 140 80</position>
+      </node>
+      <node id="Forecast">
+        <name>Forecast</name>
+        <position>60 160 140 200</position>
+      </node>
+      <node id="Umbrella">
+        <name>Take umbrella?</name>
+        <position>260 160 340 200</position>
+      </node>
+      <node id="U">
+        <name>Satisfaction</name>
+        <position>260 40 340 80</position>
+      </node>
+    </genie>
+  </extensions>
+</smile>
