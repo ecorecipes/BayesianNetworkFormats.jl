@@ -5,7 +5,7 @@ Readers and writers for Bayesian-network and influence-diagram interchange forma
 ## Place in the ecosystem
 
 Dependency order (arrows = depends on):
-EcologicalBayesianNetworks → InfluenceDiagrams → BayesianNetworkInference → BayesianNetworks → MarkovCategories,
+EcologicalBayesianNetworks → InfluenceDiagrams → BayesianNetworkInference → BayesianNetworks → FiniteKernels,
 and BayesianNetworks → BayesianNetworkFormats (a Catlab-free leaf).
 This package depends on: nothing else in the ecosystem (ADR 0003). External deps: EzXML, JSON3.
 The bridges `BayesModel(::NetworkIR)` / `InfluenceDiagramModel(::NetworkIR)` live downstream, not here.
@@ -23,7 +23,8 @@ The bridges `BayesModel(::NetworkIR)` / `InfluenceDiagramModel(::NetworkIR)` liv
   the writer-produced fixtures and every golden file (hand-written fixtures are never overwritten).
 - `test/fixtures/{dne,xdsl,net,bif,dsc,uai,golden}/` + `LICENSES.md`; bnlearn `asia` files are verbatim CC BY-SA.
   Externally written fixtures (the only witnesses for a table layout that this package did not produce): `uai/ChestClinic.uai`
-  (Merlin, BSD 3-Clause) and `xdsl/Habitat_Suitability.xdsl` (GeNIe, BNMA record 132, CC BY 4.0). Never regenerate those.
+  (Merlin, BSD 3-Clause) and `xdsl/Habitat_Suitability.xdsl` (GeNIe, BNMA record 132,
+  CC BY with version unstated on the record). Never regenerate those.
 
 ## Invariants that must not be broken
 

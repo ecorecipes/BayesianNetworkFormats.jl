@@ -455,7 +455,7 @@ function _dne_evidence(ev, states, id, file)
     ev isa DneStateIndex && return states[_dne_state_number(ev, states, id, file)]
     ev isa Symbol && return String(ev)
     ev isa Number && return Float64(ev)
-    throw(ParseError("unexpected evidence $(repr(ev)) on node $(id)"; file))
+    return throw(ParseError("unexpected evidence $(repr(ev)) on node $(id)"; file))
 end
 
 # --- writer ----------------------------------------------------------------------------
@@ -577,7 +577,9 @@ function _write_dne_inputs(io::IO, v::IRVariable)
     inputs = get(v.extras, :inputs, nothing)
     (inputs === nothing || length(inputs) != length(v.parents) || isempty(inputs)) && return
     cells = [isempty(string(x)) ? "" : _identifier(string(x)) for x in inputs]
-    return println(io, "\tinputs = (", join(cells, ", "), ");")
+    # A trailing separator is not an entry; terminate a final empty slot explicitly.
+    ending = isempty(last(cells)) ? "," : ""
+    return println(io, "\tinputs = (", join(cells, ", "), ending, ");")
 end
 
 _dne_level(x) = x == Inf ? "INFINITY" : x == -Inf ? "-INFINITY" : _fmt_coord(x)

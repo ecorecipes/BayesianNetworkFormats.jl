@@ -58,7 +58,7 @@ node types the IR cannot hold raise [`UnsupportedNodeError`](@ref); with `strict
 are skipped (together with their descendants) and listed in `ir.extras[:skipped]`.
 The result is validated (missing tables allowed); rows that do not sum to one within `atol`
 raise [`NotNormalizedError`](@ref) unless `renormalize=true`. `names` is forwarded to
-[`read_uai`](@ref) as the path of a UAI names sidecar and is an error for any other format.
+the UAI reader as the path of a names sidecar and is an error for any other format.
 
 ```julia
 ir = read_network(fixture_path("bif/asia.bif"))

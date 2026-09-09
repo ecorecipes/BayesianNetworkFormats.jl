@@ -47,6 +47,7 @@ remote_kw = has_commit ?
 makedocs(;
          remote_kw...,
          modules=[BayesianNetworkFormats],
+         checkdocs=:exports,
          sitename="BayesianNetworkFormats.jl",
          authors="Simon Frost",
          warnonly=[:missing_docs, :cross_references],

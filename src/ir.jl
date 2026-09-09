@@ -296,7 +296,7 @@ Check the structural invariants of the IR and return it (with rows rescaled when
 `renormalize=true`). Checks: unique variable ids; every parent exists; states are unique and
 non-empty for chance/decision nodes and empty for utility nodes; decision nodes have no
 table; utility nodes are never parents; the graph is acyclic; MAU nodes reference utility
-nodes; every table has the size implied by its parents; chance rows are non-negative and sum
+nodes; every table has the size implied by its parents; chance rows are finite, non-negative and sum
 to one within `atol`; utility tables are free of `NaN`. A non-normalised row raises [`NotNormalizedError`](@ref) unless
 `renormalize=true` and the row sum is positive. Missing tables raise
 [`ValidationError`](@ref) unless `allow_missing_tables=true` (readers allow them, since
@@ -304,6 +304,8 @@ Netica files often carry structure without probabilities).
 """
 function validate(ir::NetworkIR; atol::Real=1e-6, renormalize::Bool=false,
                   allow_missing_tables::Bool=false)
+    isfinite(atol) && atol >= 0 ||
+        throw(ArgumentError("atol must be finite and nonnegative, got $atol"))
     index = Dict{Symbol,IRVariable}()
     for v in ir.variables
         haskey(index, v.id) && throw(ValidationError(v.id, "duplicate variable id $(v.id)"))
@@ -365,10 +367,13 @@ function validate(ir::NetworkIR; atol::Real=1e-6, renormalize::Bool=false,
             for cfg in CartesianIndices(pdims)
                 idx = Tuple(cfg)
                 row = view(t, idx..., :)
-                any(x -> x < 0 || isnan(x), row) &&
+                any(x -> x < 0 || !isfinite(x), row) &&
                     throw(ValidationError(v.id,
-                                          "row $(idx) of the table of $(v.id) has negative or NaN entries"))
+                                          "row $(idx) of the table of $(v.id) has negative or nonfinite entries"))
                 s = sum(row)
+                isfinite(s) ||
+                    throw(ValidationError(v.id,
+                                          "row $(idx) of the table of $(v.id) has a nonfinite total"))
                 if abs(s - 1) > atol
                     (renormalize && s > 0) || throw(NotNormalizedError(v.id, idx, s))
                     newt === t && (newt = copy(t))

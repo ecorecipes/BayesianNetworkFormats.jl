@@ -87,11 +87,16 @@ id = read_network(fixture_path("xdsl/grazing_reference_id.xdsl"))
 decisions(id), utilities(id), id.mau
 
 # lenient reading of files with unsupported node types
-lenient = read_network("model_with_equations.xdsl"; strict=false)
+lenient = read_network(fixture_path("xdsl/equation_node.xdsl"); strict=false)
 lenient.extras[:skipped]
 
-# files whose rows do not sum to one
-read_network("rounded.dne"; renormalize=true)
+# the same reader option for rounded probability rows, without an external input file
+rounded = """
+bnet rounded {
+  node X { states = (a, b, c); probs = (0.333, 0.333, 0.333); };
+};
+"""
+read_network(IOBuffer(rounded), NeticaDNE(); renormalize=true)
 ```
 
 Gzip-compressed files from the bnlearn repository must be decompressed first
@@ -143,5 +148,9 @@ documentation. The canonical BibTeX file is `docs/src/references.bib`.
 
 ## Fixture licences
 
-`test/fixtures/{bif,net,dsc}/asia.*` are verbatim from the bnlearn repository (CC BY-SA 3.0);
-everything else is MIT. See [`test/fixtures/LICENSES.md`](test/fixtures/LICENSES.md).
+The bnlearn `asia` originals and their UAI/JSON derivatives are CC BY-SA 3.0.
+`ChestClinic.uai` carries the BSD 3-Clause notice, and `Habitat_Suitability.xdsl`
+is attributed under CC BY (the BNMA record does not state a version; the local
+notice documents its interpretation). The repository-authored fixtures are MIT.
+See [`test/fixtures/LICENSES.md`](test/fixtures/LICENSES.md) for the file-specific
+terms and attributions; the package licence does not replace them.
