@@ -59,6 +59,6 @@ makedocs(;
          plugins=[bib],
          pages=pages,)
 
-deploydocs(;
+"--no-deploy" in ARGS || deploydocs(;
            repo="github.com/ecorecipes/BayesianNetworkFormats.jl.git",
            devbranch="main",)
