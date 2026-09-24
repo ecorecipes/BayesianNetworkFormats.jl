@@ -219,7 +219,7 @@ function write_net(io::IO, ir::NetworkIR)
         println(io)
         println(io, head, " ", _identifier(v.id))
         println(io, "{")
-        v.title == String(v.id) || println(io, "  label = ", _net_string(v.title), ";")
+        v.title == _identifier(v.id) || println(io, "  label = ", _net_string(v.title), ";")
         isempty(v.comment) || println(io, "  HR_Desc = ", _net_string(v.comment), ";")
         v.position === nothing ||
             println(io, "  position = (", _fmt_coord(v.position[1]), " ",

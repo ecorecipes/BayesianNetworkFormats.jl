@@ -555,7 +555,7 @@ function _write_dne_node(io::IO, v::IRVariable, index, nested::Bool)
         vals = _fmt.(to_rowmajor(v.table))
         _write_dne_table(io, "functable", vals, pdims, pstates, pnames, String[], nested)
     end
-    v.title == String(v.id) || println(io, "\ttitle = ", _dne_string(v.title), ";")
+    v.title == _identifier(v.id) || println(io, "\ttitle = ", _dne_string(v.title), ";")
     isempty(v.comment) || println(io, "\tcomment = ", _dne_string(v.comment), ";")
     evidence = get(v.extras, :evidence, nothing)
     evidence === nothing ||

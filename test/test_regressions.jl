@@ -32,3 +32,19 @@ end
         @test_throws ArgumentError validate(ir; atol, renormalize=true)
     end
 end
+
+@testset "writers keep a name that needed sanitising" begin
+    # The .dne and .net writers emit `_identifier(v.id)` as the node name but used to suppress
+    # the title/label whenever it equalled the *raw* id, so a name containing a space was
+    # silently unrecoverable. Compare against the sanitised identifier instead.
+    ir = NetworkIR("t",
+                   [IRVariable(Symbol("Habitat quality"); states=["lo", "hi"],
+                               table=[0.3, 0.7])])
+    for (ext, fmt) in (("net", HuginNET()), ("dne", NeticaDNE()))
+        path = joinpath(mktempdir(), "sanitised." * ext)
+        write_network(path, ir; format=fmt)
+        back = read_network(path)
+        @test back.variables[1].title == "Habitat quality"
+        @test back.variables[1].table ≈ [0.3, 0.7]
+    end
+end
