@@ -48,3 +48,22 @@ end
         @test back.variables[1].table ≈ [0.3, 0.7]
     end
 end
+
+@testset "a UTF-8 BOM does not defeat the readers" begin
+    # Netica and GeNIe are Windows tools and their files are routinely saved with a
+    # byte-order mark. Left in place it is just an unexpected character at 1:1, which every
+    # tokenizer-based reader rejected (`.uai` complained of a missing BAYES header);
+    # only `.xdsl` survived, because EzXML strips it.
+    cases = [("dne", "dne/habitat_reference.dne"), ("net", "net/habitat_reference.net"),
+             ("bif", "bif/habitat_reference.bif"), ("dsc", "dsc/habitat_reference.dsc"),
+             ("uai", "uai/ChestClinic.uai"), ("xdsl", "xdsl/habitat_reference.xdsl")]
+    for (ext, rel) in cases
+        src = fixture_path(rel)
+        plain = read_network(src)
+        withbom = joinpath(mktempdir(), "bom." * ext)
+        write(withbom, "﻿" * read(src, String))
+        ir = read_network(withbom)
+        @test length(ir.variables) == length(plain.variables)
+        @test [v.id for v in ir.variables] == [v.id for v in plain.variables]
+    end
+end

@@ -237,9 +237,19 @@ mutable struct TokenStream
     source::String
 end
 
+"""
+    strip_bom(s) -> AbstractString
+
+`s` without a leading UTF-8 byte-order mark. Netica and GeNIe run on Windows and their
+files are routinely saved with one; left in place it is just an unexpected character at
+1:1, which every tokenizer-based reader rejects.
+"""
+strip_bom(s::AbstractString) = startswith(s, '\ufeff') ? SubString(s, nextind(s, 1)) : s
+
 function TokenStream(src::AbstractString, opts::TokenizerOptions;
                      file::AbstractString="<string>")
-    return TokenStream(tokenize(src, opts; file), 1, String(file), String(src))
+    stripped = strip_bom(src)
+    return TokenStream(tokenize(stripped, opts; file), 1, String(file), String(stripped))
 end
 
 peek(ts::TokenStream, k::Int=0) = ts.tokens[min(ts.pos + k, length(ts.tokens))]

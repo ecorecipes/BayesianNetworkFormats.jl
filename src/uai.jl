@@ -73,7 +73,7 @@ variable varying fastest, so a scope is `(parents..., child)` in IR order.
 function read_uai(io::IO; file::AbstractString="<string>", strict::Bool=true,
                   atol::Real=1e-6,
                   renormalize::Bool=false, names=nothing)
-    words = split(read(io, String))
+    words = split(strip_bom(read(io, String)))
     isempty(words) && throw(ParseError("empty UAI file"; file))
     pos = Ref(1)
     kind = _uai_next!(words, pos, file, "network type")
@@ -214,7 +214,7 @@ state indices; with `ir` they are variable ids and state names. Files that omit 
 count (older single-sample files) are accepted.
 """
 function read_uai_evidence(path::AbstractString; ir::Union{Nothing,NetworkIR}=nothing)
-    words = split(read(path, String))
+    words = split(strip_bom(read(path, String)))
     ints = Int[]
     for w in words
         x = tryparse(Int, w)
