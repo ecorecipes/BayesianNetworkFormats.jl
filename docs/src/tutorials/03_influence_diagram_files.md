@@ -151,15 +151,15 @@ show_block("xdsl/umbrella.xdsl", "<utility", 4)
         </utility>
 
 ``` julia
-show_block("net/umbrella.net", "potential (U", 6)
+show_block("net/umbrella.net", "potential (U |", 6)
 ```
-
-    potential (Umbrella | Forecast)
-    {
-    }
 
     potential (U | Weather Umbrella)
     {
+      data = 
+        ((20.0 100.0)                       % Weather=sunny
+         (70.0 0.0));                       % Weather=rainy
+    }
 
 ## Checking the numbers
 

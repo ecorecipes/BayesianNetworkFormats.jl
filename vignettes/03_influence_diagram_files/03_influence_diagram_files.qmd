@@ -97,7 +97,7 @@ show_block("xdsl/umbrella.xdsl", "<utility", 4)
 ```
 
 ```{julia}
-show_block("net/umbrella.net", "potential (U", 6)
+show_block("net/umbrella.net", "potential (U |", 6)
 ```
 
 ## Checking the numbers
