@@ -188,15 +188,28 @@ end
     write_uai_names(io::IO, ir::NetworkIR)
 
 Write the `.names` sidecar: an optional `network NAME` line, then one line per variable with
-its id followed by its state names (whitespace in names is replaced by `_`).
+its id followed by its state names.
+
+The sidecar is whitespace-delimited, so a name containing whitespace cannot be written as
+it stands and has its whitespace replaced by `_`. That is a lossy rename -- `"Rainfall
+(mm)"` is written `Rainfall_(mm)` and reads back that way -- so it is reported with a
+warning rather than done silently. `_check_identifiers` catches the case where two names
+collide after renaming; this warns about the rename itself.
 """
 function write_uai_names(io::IO, ir::NetworkIR)
     println(io,
             "# variable and state names for the UAI file; written by BayesianNetworkFormats.jl")
     isempty(ir.name) || println(io, "network ", ir.name)
+    renamed = String[]
     for v in ir.variables
+        for name in vcat(string(v.id), v.states)
+            word = _uai_word(name)
+            word == name || push!(renamed, string(name, " -> ", word))
+        end
         println(io, _uai_word(v.id), " ", join(_uai_word.(v.states), " "))
     end
+    isempty(renamed) ||
+        @warn "the .names sidecar is whitespace-delimited, so these names were rewritten and will not round-trip" renamed
     return nothing
 end
 
