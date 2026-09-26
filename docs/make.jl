@@ -47,10 +47,11 @@ remote_kw = has_commit ?
 makedocs(;
          remote_kw...,
          modules=[BayesianNetworkFormats],
+         # Only exported docstrings have to reach the manual: the API page leaves the
+         # private helpers' docstrings out on purpose (see docs/src/api.md).
          checkdocs=:exports,
          sitename="BayesianNetworkFormats.jl",
          authors="Simon Frost",
-         warnonly=[:missing_docs, :cross_references],
          format=Documenter.HTML(;
                                 prettyurls=get(ENV, "CI", "false") == "true",
                                 canonical="https://ecorecipes.github.io/BayesianNetworkFormats.jl",
