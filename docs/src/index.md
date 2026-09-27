@@ -39,6 +39,12 @@ influence-diagram files.
   sizes, normalisation (with `renormalize=true` to rescale), acyclicity.
 - Node types the IR cannot represent raise [`UnsupportedNodeError`](@ref) in strict mode and
   are skipped, with their descendants, when `strict=false`.
+- Every exception the package defines subtypes the abstract root
+  [`BayesianNetworkFormatsError`](@ref), so `e isa BayesianNetworkFormatsError` catches
+  any error that a reader, a writer or [`validate`](@ref) raises for the content of a file
+  or an IR. Invalid arguments raise Base's `ArgumentError` instead, a missing file
+  `SystemError`, and looking up a variable id that the IR does not have (for example with
+  [`variable`](@ref)) `KeyError` (ADR 0013).
 - The brute-force [`joint_distribution`](@ref) is the oracle that pins the axis convention
   in the test suite.
 - Fixtures under `test/fixtures/` (reachable through [`fixture_path`](@ref)) include the

@@ -1,3 +1,41 @@
+# Exceptions of BayesianNetworkFormats (ADR 0013). Every exception the package defines lives
+# in this file, with its `showerror` method, and subtypes the root
+# `BayesianNetworkFormatsError`. The module includes this file first: the types have only
+# Base field types, and the readers, writers and `validate` throw them.
+#
+# - Carry the offending file, node or variable in the fields and the message. Library code
+#   never calls a bare `error("...")`.
+# - Invalid arguments and keywords raise `ArgumentError`, not a type from this file (for
+#   example a negative `atol`, or `names` passed to a reader other than UAI's). A missing
+#   file raises Base's `SystemError`, and looking up a variable id that the IR does not
+#   have (`variable`, `marginal`, `write_uai_evidence`) raises `KeyError`.
+# - The package has no ecosystem dependencies (ADR 0003), so there is no lower root to
+#   subtype. A docstring names another package's type as a code span, never with `@ref`.
+
+"""
+    BayesianNetworkFormatsError
+
+Abstract supertype of every exception that BayesianNetworkFormats defines:
+[`ParseError`](@ref), [`UnsupportedNodeError`](@ref), [`NotNormalizedError`](@ref),
+[`ValidationError`](@ref), [`FormatDetectionError`](@ref),
+[`IdentifierCollisionError`](@ref) and [`IdentifierLengthError`](@ref). It marks the
+package that introduced an error, not a kind of failure, and catches any error that a
+reader, a writer or [`validate`](@ref) raises for the content of a file or an IR.
+Invalid arguments and keywords raise Base's `ArgumentError` instead, a missing file
+raises `SystemError`, and looking up a variable id that the IR does not have raises
+`KeyError`; all three are outside this root.
+
+```jldoctest
+julia> try
+           read_network(IOBuffer("network {"), BIF())
+       catch e
+           e isa BayesianNetworkFormatsError
+       end
+true
+```
+"""
+abstract type BayesianNetworkFormatsError <: Exception end
+
 """
     ParseError(message, file, line, column)
 
@@ -5,7 +43,7 @@ Raised when a network file cannot be tokenised or parsed. `file` is the path tha
 (`"<string>"` for in-memory input) and `line`/`column` locate the offending token
 (1-based; `0` when the location is unknown).
 """
-struct ParseError <: Exception
+struct ParseError <: BayesianNetworkFormatsError
     message::String
     file::String
     line::Int
@@ -33,7 +71,7 @@ for `format` cannot represent in the IR, for example a GeNIe `<equation>` node o
 Readers raise this only in strict mode; in non-strict mode the node is skipped and recorded
 in `ir.extras[:skipped]`.
 """
-struct UnsupportedNodeError <: Exception
+struct UnsupportedNodeError <: BayesianNetworkFormatsError
     id::String
     nodetype::String
     format::Symbol
@@ -57,7 +95,7 @@ distribution of chance node `id` for parent configuration `index` (a tuple of 1-
 indices, one per parent, in parent order) sums to `total` instead of one.
 Pass `renormalize=true` to rescale rows instead.
 """
-struct NotNormalizedError <: Exception
+struct NotNormalizedError <: BayesianNetworkFormatsError
     id::Symbol
     index::Tuple
     total::Float64
@@ -75,7 +113,7 @@ Raised by [`validate`](@ref) for structural problems: duplicate ids, unknown par
 table sizes, cycles, decision nodes with tables, utility nodes used as parents. `id` is the
 variable concerned, or `:network` for network-level problems.
 """
-struct ValidationError <: Exception
+struct ValidationError <: BayesianNetworkFormatsError
     id::Symbol
     message::String
 end
@@ -88,7 +126,7 @@ Base.showerror(io::IO, e::ValidationError) = print(io, "ValidationError: ", e.me
 Raised by [`detect_format`](@ref) when neither the file extension nor the first bytes of
 `path` identify a supported format (or when the file is gzip-compressed).
 """
-struct FormatDetectionError <: Exception
+struct FormatDetectionError <: BayesianNetworkFormatsError
     path::String
     message::String
 end
@@ -106,7 +144,7 @@ after sanitisation (see `_identifier`), which would produce a file that cannot b
 `:network` for variable and MAU ids), `originals` is the pair of original names and
 `sanitized` the identifier they share. Rename one of the two names before writing.
 """
-struct IdentifierCollisionError <: Exception
+struct IdentifierCollisionError <: BayesianNetworkFormatsError
     id::Symbol
     kind::Symbol
     originals::Tuple{String,String}
@@ -136,7 +174,7 @@ limits node and state names to 30 characters). `kind` is `:variable`, `:state` o
 `id` names the variable whose state is too long (or `:network` for variable and MAU ids) and
 `name` is the offending identifier.
 """
-struct IdentifierLengthError <: Exception
+struct IdentifierLengthError <: BayesianNetworkFormatsError
     id::Symbol
     kind::Symbol
     name::String

@@ -14,7 +14,11 @@ The bridges `BayesModel(::NetworkIR)` / `InfluenceDiagramModel(::NetworkIR)` liv
 
 - `src/ir.jl` — `NodeKind`, `IRVariable`, `MAUNode`, `NetworkIR`, `from_rowmajor`/`to_rowmajor`, `validate`,
   accessors, `topological_order`, `joint_distribution`/`marginal` (brute-force oracle), `isequivalent`/`differences`.
-- `src/exceptions.jl` — `ParseError(file, line, column)`, `UnsupportedNodeError`, `NotNormalizedError`, `ValidationError`, `FormatDetectionError`.
+- `src/errors.jl` — the root `BayesianNetworkFormatsError` and every exception under it (`ParseError(file, line, column)`,
+  `UnsupportedNodeError`, `NotNormalizedError`, `ValidationError`, `FormatDetectionError`, `IdentifierCollisionError`,
+  `IdentifierLengthError`) with their `showerror` methods (ADR 0013); included first. `test/test_errors.jl` checks that
+  every exception type the package defines subtypes the root and prints as `BayesianNetworkFormats.ParseError` etc.
+  from a module that only imports the package, as the conformance inspect adapter serialises it.
 - `src/tokenizer.jl` — shared C-like tokenizer (`DNE_TOKENS`, `NET_TOKENS`, `BIF_TOKENS`, `DSC_TOKENS`) and `TokenStream`.
 - `src/formats.jl` — format singletons, `format_name`, shared reader/writer helpers (`_identifier`, `_onehot`, `_drop_orphans!`, `_check_writable`).
 - `src/netica_dne.jl`, `src/genie_xdsl.jl`, `src/hugin_net.jl`, `src/bif.jl`, `src/dsc.jl`, `src/uai.jl` — one reader + writer each.

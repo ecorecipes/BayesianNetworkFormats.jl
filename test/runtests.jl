@@ -24,5 +24,6 @@ include("utils.jl")
     include("test_crossformat.jl")
     include("test_failures.jl")
     include("test_regressions.jl")
+    include("test_errors.jl")
     include("test_docstrings.jl")
 end

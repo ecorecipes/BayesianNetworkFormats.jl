@@ -22,13 +22,15 @@ export IRVariable, MAUNode, NetworkIR, JointDistribution
 export from_rowmajor, to_rowmajor, validate, nstates, variable, chance_nodes, decisions,
        utilities, has_decisions, topological_order, joint_distribution, marginal,
        isequivalent, differences
-export ParseError, UnsupportedNodeError, NotNormalizedError, ValidationError,
-       FormatDetectionError, IdentifierCollisionError, IdentifierLengthError
+# Exceptions (ADR 0013): the root and the seven concrete types under it
+export BayesianNetworkFormatsError, ParseError, UnsupportedNodeError, NotNormalizedError,
+       ValidationError, FormatDetectionError, IdentifierCollisionError,
+       IdentifierLengthError
 export NetworkFormat, NeticaDNE, GeNIeXDSL, HuginNET, BIF, DSC, UAI, IRJSON
 export read_network, write_network, detect_format, format_name, fixture_path
 export read_ir_json, write_ir_json, read_uai_evidence, write_uai_evidence
 
-include("exceptions.jl")
+include("errors.jl")  # first: every other file throws these types
 include("ir.jl")
 include("tokenizer.jl")
 include("formats.jl")
