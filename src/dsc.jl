@@ -70,7 +70,7 @@ function read_dsc(io::IO; file::AbstractString="<string>", strict::Bool=true,
                     accept!(ts, :punct, ":") === nothing && accept!(ts, :punct, "=")
                     expect!(ts, :ident, "discrete")
                     expect!(ts, :punct, "[")
-                    n = Int(expect!(ts, :number).value)
+                    n = expect_int!(ts)
                     expect!(ts, :punct, "]")
                     expect!(ts, :punct, "=")
                     expect!(ts, :punct, "{")
@@ -137,7 +137,7 @@ function read_dsc(io::IO; file::AbstractString="<string>", strict::Bool=true,
                     next!(ts)
                     idxs = Int[]
                     while !_is(peek(ts), :punct, ")")
-                        push!(idxs, Int(expect!(ts, :number).value))
+                        push!(idxs, expect_int!(ts))
                         accept!(ts, :punct, ",")
                     end
                     next!(ts)

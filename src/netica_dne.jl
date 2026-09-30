@@ -268,8 +268,12 @@ function _dne_states(nb::DneBlock, kind::Symbol, file)
     end
     titles === nothing || return titles
     numstates = _dne_attr(nb, "numstates")
-    numstates === nothing || return String["s$(i - 1)" for i in 1:Int(numstates)]
-    return nothing
+    numstates === nothing && return nothing
+    (numstates isa Real && !(numstates isa Bool) && isinteger(numstates) &&
+     0 <= numstates < 2.0^63) ||
+        throw(ParseError("numstates of node $(nb.name) must be a nonnegative integer, got $(repr(numstates))";
+                         file))
+    return String["s$(i - 1)" for i in 1:Int(numstates)]
 end
 
 function _dne_variable(nb::DneBlock, states_of, file, strict, skipped,
@@ -316,8 +320,12 @@ function _dne_variable(nb::DneBlock, states_of, file, strict, skipped,
     vis = _dne_child(nb, "visual")
     if vis !== nothing
         center = _dne_attr(vis, "center")
-        center isa AbstractVector && length(center) == 2 &&
-            (position = (Float64(center[1]), Float64(center[2])))
+        if center isa AbstractVector && length(center) == 2
+            all(x -> x isa Real && !(x isa Bool), center) ||
+                throw(ParseError("visual center of node $(id) is not a pair of numbers: $(repr(center))";
+                                 file))
+            position = (Float64(center[1]), Float64(center[2]))
+        end
     end
     extras = Dict{Symbol,Any}()
     levels = _dne_attr(nb, "levels")
@@ -410,6 +418,9 @@ function _dne_onehot(functable, states, pdims, id, extras, file)
             k = _level_bin(levels, e)
             k == 0 &&
                 throw(ParseError("functable value $(e) of $(id) is outside its levels";
+                                 file))
+            k <= length(states) ||
+                throw(ParseError("functable value $(e) of $(id) falls in level interval $(k), but the node has only $(length(states)) states";
                                  file))
             push!(names, states[k])
         else

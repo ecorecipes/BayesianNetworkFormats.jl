@@ -79,7 +79,8 @@
             @test read_uai_evidence(p) == [Dict(1 => 0, 2 => 1)]
             write(p, "1\n2 1 0\n")
             @test_throws ParseError read_uai_evidence(p)
-            @test_throws KeyError write_uai_evidence(p, [Dict(:nope => "yes")]; ir=asia)
+            @test_throws ValidationError write_uai_evidence(p, [Dict(:nope => "yes")];
+                                                            ir=asia)
             @test_throws ValidationError write_uai_evidence(p, [Dict(:asia => "maybe")];
                                                             ir=asia)
         end

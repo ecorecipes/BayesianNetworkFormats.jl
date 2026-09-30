@@ -82,7 +82,12 @@ function read_xdsl(io::IO; file::AbstractString="<string>", strict::Bool=true,
         for p in EzXML.findall("property", el)
             props[haskey(p, "id") ? p["id"] : ""] = String(EzXML.nodecontent(p))
         end
-        states = String[s["id"] for s in EzXML.findall("state", el)]
+        states = String[]
+        for s in EzXML.findall("state", el)
+            haskey(s, "id") ||
+                throw(ParseError("a <state> of node $(id) has no id attribute"; file))
+            push!(states, s["id"])
+        end
         parents = Symbol.(_xdsl_words(el, "parents"))
         if tag == "cpt"
             push!(raws,

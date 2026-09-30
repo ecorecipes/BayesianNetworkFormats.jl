@@ -8,7 +8,8 @@
 # - Invalid arguments and keywords raise `ArgumentError`, not a type from this file (for
 #   example a negative `atol`, or `names` passed to a reader other than UAI's). A missing
 #   file raises Base's `SystemError`, and looking up a variable id that the IR does not
-#   have (`variable`, `marginal`, `write_uai_evidence`) raises `KeyError`.
+#   have (`variable`, `marginal`) raises `KeyError`. `write_uai_evidence` checks sample
+#   content, so an unknown id or state there is a `ValidationError` (ADR 0015).
 # - The package has no ecosystem dependencies (ADR 0003), so there is no lower root to
 #   subtype. A docstring names another package's type as a code span, never with `@ref`.
 

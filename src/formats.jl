@@ -147,7 +147,8 @@ _fmt(x::Real) = string(Float64(x))
 
 Number formatting for coordinates and levels: integer-valued numbers print without `.0`.
 """
-_fmt_coord(x::Real) = (isfinite(x) && isinteger(x)) ? string(Int(x)) : string(Float64(x))
+_fmt_coord(x::Real) = (isinteger(x) && abs(x) < 2.0^63) ? string(Int(x)) :
+                      string(Float64(x))
 
 _index(ir::NetworkIR) = Dict(v.id => v for v in ir.variables)
 

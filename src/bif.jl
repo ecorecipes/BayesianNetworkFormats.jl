@@ -94,7 +94,7 @@ function read_bif(io::IO; file::AbstractString="<string>", strict::Bool=true,
                     next!(ts)
                     expect!(ts, :ident, "discrete")
                     expect!(ts, :punct, "[")
-                    n = Int(expect!(ts, :number).value)
+                    n = expect_int!(ts)
                     expect!(ts, :punct, "]")
                     expect!(ts, :punct, "{")
                     while !_is(peek(ts), :punct, "}")
@@ -110,8 +110,12 @@ function read_bif(io::IO; file::AbstractString="<string>", strict::Bool=true,
                     p = _bif_property(ts)
                     m = match(_POSITION_RE, p)
                     if m !== nothing
-                        positions[id] = (parse(Float64, m.captures[1]),
-                                         parse(Float64, m.captures[2]))
+                        x = tryparse(Float64, m.captures[1])
+                        y = tryparse(Float64, m.captures[2])
+                        (x === nothing || y === nothing) &&
+                            parse_error(ts, a,
+                                        "position of variable $(id) is not a pair of numbers: $(repr(m.match))")
+                        positions[id] = (x, y)
                     else
                         push!(props, p)
                     end

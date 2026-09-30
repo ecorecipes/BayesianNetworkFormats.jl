@@ -62,6 +62,10 @@ The bridges `BayesModel(::NetworkIR)` / `InfluenceDiagramModel(::NetworkIR)` liv
   past a format's limit (Netica: 30 characters). The policy lives in `_id_sanitizer` / `_state_sanitizer` / `_identifier_limit`.
 - A Netica continuous node that carries both `states` and `levels` keeps the names; the writer emits both. Only when the states
   are exactly the derived interval labels (`0 to 5`) does it write `levels` alone.
+- Malformed content raises this package's typed errors, never a Base exception (ADR 0015): convert a number token
+  to a count or index with `expect_int!` / `token_int` (tokenizer.jl), a UAI count with `_uai_count!`, check list
+  shapes and lengths before indexing, and read `*.bnir.json` fields through the `_json_get` / `_json_strings` /
+  `_json_numbers` shape checks (`ParseError` naming the field). `test/test_malformed.jl` holds one case per site.
 - Every reader validates its result (missing tables allowed); non-normalised rows raise `NotNormalizedError` unless `renormalize=true`.
 - Titles default to the id. `deterministic` is an annotation only BIF/DSC/UAI/HUGIN cannot record.
 - Every optimised path is checked against a slower oracle: `joint_distribution` pins the convention with `P(dysp = yes) = 0.4360` on `asia`.
@@ -91,5 +95,5 @@ build is strict (no `warnonly`; `checkdocs=:exports`, because the API page leave
 an exported docstring left out of the manual or a broken `@ref` fails it; typed exceptions with variable names
 in the message, following ADR 0013: they live in `src/errors.jl` and subtype the nearest root
 (`FiniteKernelsError`, `BayesianNetworkFormatsError` or `BayesNetError`), invalid arguments and keywords raise
-`ArgumentError`, typed errors from a lower package pass through unchanged and documented, and another
+`ArgumentError`, typed errors from a lower package pass through unchanged and documented, content read from a file, document or manifest is checked before it is converted and raises the package's typed error (ADR 0015: never catch the `MethodError` or `InexactError` of an unchecked conversion), and another
 package's type is named as a code span, never with `@ref`; immutable structs; no emojis in code or docs.

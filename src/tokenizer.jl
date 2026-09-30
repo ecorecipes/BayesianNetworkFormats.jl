@@ -183,10 +183,15 @@ function tokenize(src::AbstractString, opts::TokenizerOptions;
                 i = j
                 continue
             end
-            val = occursin(r"^[+-]?0[xX]", txt) ?
-                  Float64(parse(Int, replace(txt, r"^[+-]?0[xX]" => ""); base=16)) *
-                  (startswith(txt, "-") ? -1 : 1) :
-                  parse(Float64, txt)
+            val = if occursin(r"^[+-]?0[xX]", txt)
+                hex = tryparse(Int, replace(txt, r"^[+-]?0[xX]" => ""); base=16)
+                hex === nothing &&
+                    throw(ParseError("hexadecimal number $(txt) does not fit a 64-bit integer";
+                                     file, line, column=col))
+                Float64(hex) * (startswith(txt, "-") ? -1 : 1)
+            else
+                parse(Float64, txt)
+            end
             push!(toks, Token(:number, String(txt), val, line, col, i, after - 1))
             i = after
             continue
@@ -198,9 +203,12 @@ function tokenize(src::AbstractString, opts::TokenizerOptions;
                                  column=col))
             txt = m.match
             after = i + ncodeunits(txt)
+            k = tryparse(Int, txt[2:end])
+            k === nothing &&
+                throw(ParseError("state index $(txt) does not fit a 64-bit integer"; file,
+                                 line, column=col))
             push!(toks,
-                  Token(:stateindex, String(txt), Float64(parse(Int, txt[2:end])), line,
-                        col, i, after - 1))
+                  Token(:stateindex, String(txt), Float64(k), line, col, i, after - 1))
             i = after
             continue
         end
@@ -276,6 +284,17 @@ function parse_error(ts::TokenStream, t::Token, msg::AbstractString)
     throw(ParseError(msg; file=ts.file, line=t.line, column=t.column))
 end
 parse_error(ts::TokenStream, msg::AbstractString) = parse_error(ts, peek(ts), msg)
+
+# The integer a number token spells. A count, index or size written as a fraction, or too
+# large for an `Int`, is malformed input, so a `ParseError` at the token (ADR 0015), never
+# the `InexactError` of `Int(x)`.
+function token_int(ts::TokenStream, t::Token)
+    v = t.value
+    (isinteger(v) && -2.0^63 <= v < 2.0^63) ||
+        parse_error(ts, t, "expected an integer, got $(_describe(t))")
+    return Int(v)
+end
+expect_int!(ts::TokenStream) = token_int(ts, expect!(ts, :number))
 
 function expect!(ts::TokenStream, kind::Symbol, text=nothing)
     t = peek(ts)

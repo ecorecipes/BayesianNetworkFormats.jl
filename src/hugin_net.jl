@@ -144,6 +144,9 @@ function read_net(io::IO; file::AbstractString="<string>", strict::Bool=true,
     states_of = Dict{Symbol,Vector{String}}()
     for (id, (kind, attrs)) in nodeinfo
         states = _net_attr(attrs, "states", Any[])
+        kind == UtilityNode || states isa AbstractVector ||
+            throw(ParseError("states of node $(id) must be a parenthesised list, got $(repr(states))";
+                             file=ts.file))
         states_of[id] = kind == UtilityNode ? String[] :
                         String[_net_state(s) for s in states]
     end
@@ -158,8 +161,14 @@ function read_net(io::IO; file::AbstractString="<string>", strict::Bool=true,
         title = string(something(_net_attr(attrs, "label"), ""))
         comment = string(something(_net_attr(attrs, "HR_Desc"), ""))
         pos = _net_attr(attrs, "position")
-        position = pos isa AbstractVector && length(pos) == 2 ?
-                   (Float64(pos[1]), Float64(pos[2])) : nothing
+        position = if pos isa AbstractVector && length(pos) == 2
+            all(x -> x isa Real && !(x isa Bool), pos) ||
+                throw(ParseError("position of node $(id) is not a pair of numbers: $(repr(pos))";
+                                 file=ts.file))
+            (Float64(pos[1]), Float64(pos[2]))
+        else
+            nothing
+        end
         states = states_of[id]
         pot = get(pots, id, nothing)
         parents = pot === nothing ? Symbol[] : pot.parents

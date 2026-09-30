@@ -51,6 +51,13 @@ function _uai_int!(words, pos, file, what)
     return x
 end
 
+# A count, cardinality or size: a negative one is malformed input (ADR 0015).
+function _uai_count!(words, pos, file, what)
+    x = _uai_int!(words, pos, file, what)
+    x >= 0 || throw(ParseError("$(what) must be nonnegative, got $(x)"; file))
+    return x
+end
+
 function _uai_float!(words, pos, file, what)
     w = _uai_next!(words, pos, file, what)
     x = tryparse(Float64, w)
@@ -82,13 +89,16 @@ function read_uai(io::IO; file::AbstractString="<string>", strict::Bool=true,
                                                        "$(file) is a MARKOV network; only BAYES networks can be read into the IR"))
         throw(ParseError("expected BAYES or MARKOV, got $(repr(kind))"; file))
     end
-    nvar = _uai_int!(words, pos, file, "number of variables")
-    cards = [_uai_int!(words, pos, file, "cardinality of variable $(i - 1)")
+    nvar = _uai_count!(words, pos, file, "number of variables")
+    cards = [_uai_count!(words, pos, file, "cardinality of variable $(i - 1)")
              for i in 1:nvar]
-    nfun = _uai_int!(words, pos, file, "number of functions")
+    nfun = _uai_count!(words, pos, file, "number of functions")
     scopes = Vector{Vector{Int}}(undef, nfun)
     for f in 1:nfun
         k = _uai_int!(words, pos, file, "size of scope $(f - 1)")
+        # the last variable of a scope is the function's child, so a scope is never empty
+        k >= 1 ||
+            throw(ParseError("size of scope $(f - 1) must be at least 1, got $(k)"; file))
         scopes[f] = [_uai_int!(words, pos, file, "scope $(f - 1)") for _ in 1:k]
         for v in scopes[f]
             0 <= v < nvar ||
@@ -243,6 +253,9 @@ function read_uai_evidence(path::AbstractString; ir::Union{Nothing,NetworkIR}=no
             throw(ParseError("unexpected end of evidence file"; file=path))
         k = ints[pos]
         pos += 1
+        k >= 0 ||
+            throw(ParseError("evidence sample declares $(k) pairs; the count must be nonnegative";
+                             file=path))
         pos + 2k - 1 <= length(ints) ||
             throw(ParseError("evidence sample declares $(k) pairs but the file ends early";
                              file=path))
@@ -276,6 +289,15 @@ function read_uai_evidence(path::AbstractString; ir::Union{Nothing,NetworkIR}=no
                              file=path))
     end
     ir === nothing && return [Dict{Int,Int}(s) for s in samples]
+    for s in samples, (v, k) in s
+        0 <= v < length(ir.variables) ||
+            throw(ParseError("evidence names variable index $(v); the network has $(length(ir.variables)) variables";
+                             file=path))
+        n = length(ir.variables[v + 1].states)
+        0 <= k < n ||
+            throw(ParseError("evidence names state index $(k) of $(ir.variables[v + 1].id), which has $(n) states";
+                             file=path))
+    end
     return [Dict{Symbol,String}(ir.variables[v + 1].id => ir.variables[v + 1].states[k + 1]
                                 for (v, k) in s)
             for s in samples]
@@ -285,7 +307,8 @@ end
     write_uai_evidence(path, samples; ir=nothing)
 
 Write a UAI evidence file. Each sample is a `Dict` (or vector of pairs) mapping 0-based
-variable indices to 0-based state indices, or, when `ir` is given, variable ids to state names.
+variable indices to 0-based state indices, or, when `ir` is given, variable ids to state names;
+an id or a state that `ir` does not have raises [`ValidationError`](@ref).
 """
 function write_uai_evidence(path::AbstractString, samples;
                             ir::Union{Nothing,NetworkIR}=nothing)
@@ -298,7 +321,8 @@ function write_uai_evidence(path::AbstractString, samples;
                     push!(pairs, Int(k) => Int(v))
                 else
                     i = findfirst(x -> x.id == Symbol(k), ir.variables)
-                    i === nothing && throw(KeyError(Symbol(k)))
+                    i === nothing && throw(ValidationError(Symbol(k),
+                                                           "$(repr(Symbol(k))) is not a variable of the network"))
                     j = findfirst(==(string(v)), ir.variables[i].states)
                     j === nothing && throw(ValidationError(Symbol(k),
                                                            "$(repr(v)) is not a state of $(k)"))
