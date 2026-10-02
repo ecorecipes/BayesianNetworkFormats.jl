@@ -35,7 +35,8 @@ package.
 ``` julia
 using BayesianNetworkFormats
 
-paths = Dict(ext => fixture_path("$(ext)/asia.$(ext)") for ext in ("bif", "net", "dsc", "uai"))
+paths = Dict(ext => relpath(fixture_path("$(ext)/asia.$(ext)"))
+             for ext in ("bif", "net", "dsc", "uai"))
 asia = Dict(ext => read_network(path) for (ext, path) in paths)
 asia["bif"]
 ```
@@ -44,7 +45,10 @@ asia["bif"]
 
 `fixture_path` returns the absolute path of a file committed under
 `test/fixtures/`, so the same models are available to downstream
-packages and to these vignettes.
+packages and to these vignettes. The reader records the path it is given
+as the network’s `source`, so the vignette passes it through `relpath`,
+relative to the working directory, and the `source` shown below is the
+same on every machine.
 
 ## The intermediate representation
 
