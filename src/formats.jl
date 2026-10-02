@@ -194,14 +194,107 @@ function _flatten_numbers!(out, x, id, file, symbols)
     return out
 end
 
+# --- size limits -------------------------------------------------------------------------
+#
+# A reader allocates a variable's states and a table's cells from sizes that the file
+# declares, and a short file can declare any size. Two keywords of every reader bound them
+# before anything is allocated, and exceeding either is a `ParseError` that names the
+# keyword (ADR 0015).
+
 """
-    _onehot(entries::Vector{String}, states, pdims, id, file) -> Array{Float64}
+    DEFAULT_MAX_STATES
+
+Default of the `max_states` keyword of [`read_network`](@ref) and the readers: at most
+65 536 states per variable, named or generated.
+"""
+const DEFAULT_MAX_STATES = 65_536
+
+"""
+    DEFAULT_MAX_TABLE_CELLS
+
+Default of the `max_table_cells` keyword of [`read_network`](@ref) and the readers: at
+most 2^27 cells per table, 1 GiB of `Float64`.
+"""
+const DEFAULT_MAX_TABLE_CELLS = 2^27
+
+# The limit keywords must be positive integers; anything else is an invalid keyword, an
+# `ArgumentError` (ADR 0013, rule v).
+function _check_limits(max_states::Integer, max_table_cells::Integer)
+    max_states >= 1 ||
+        throw(ArgumentError("max_states must be a positive integer, got $(max_states)"))
+    max_table_cells >= 1 ||
+        throw(ArgumentError("max_table_cells must be a positive integer, got $(max_table_cells)"))
+    return nothing
+end
+
+"""
+    _check_states(n, what, file, max_states; line=0, column=0) -> Int
+
+`n`, the number of states of `what` (a variable or node, as the message should name it),
+or a [`ParseError`](@ref) when it exceeds `max_states`.
+"""
+function _check_states(n::Integer, what, file, max_states::Integer; line::Integer=0,
+                       column::Integer=0)
+    n <= max_states ||
+        throw(ParseError("$(what) has $(n) states, more than max_states = $(max_states); pass a larger max_states to read it";
+                         file, line, column))
+    return Int(n)
+end
+
+"""
+    _table_length(dims, what, file; max_table_cells, line=0, column=0) -> Int
+
+The number of cells of a table whose dimensions `dims` come from file content: their
+product, checked before anything is allocated. A product that does not fit an `Int` is a
+[`ParseError`](@ref) naming `what` (at `line` and `column` when the reader has a token), as
+is one larger than `max_table_cells` (ADR 0015). `prod` would wrap around, and a wrapped
+size can match a short list of values, or reach `reshape` or `fill` as an
+`ArgumentError`. A zero dimension makes the product zero whatever the others are, as it
+does for an `Array`. Pass `max_table_cells=typemax(Int)` for a count that is not a table.
+"""
+function _table_length(dims, what, file; max_table_cells::Integer, line::Integer=0,
+                       column::Integer=0)
+    ds = collect(Int, dims)
+    any(iszero, ds) && return 0
+    shown() = length(ds) <= 8 ? join(ds, " x ") : join(first(ds, 8), " x ") * " x ..."
+    n = 1
+    for d in ds
+        n, overflow = Base.Checked.mul_with_overflow(n, d)
+        overflow &&
+            throw(ParseError("$(what) has dimensions $(shown()), more cells than a 64-bit integer can count";
+                             file, line, column))
+    end
+    n <= max_table_cells ||
+        throw(ParseError("$(what) has $(n) cells (dimensions $(shown())), more than max_table_cells = $(max_table_cells); pass a larger max_table_cells to read it";
+                         file, line, column))
+    return n
+end
+
+"""
+    _unnamed_states(n, what, file, max_states) -> Vector{String}
+
+The generated names `s0`, `s1`, ... of `n` states that a file counts but does not name (a
+Netica `numstates`, a UAI cardinality with no names-file entry), after checking `n`
+against `max_states` (`_check_states`), so that a declared count is never an allocation
+size of its own.
+"""
+function _unnamed_states(n::Integer, what, file, max_states::Integer)
+    _check_states(n, what, file, max_states)
+    return String["s$(k - 1)" for k in 1:n]
+end
+
+"""
+    _onehot(entries::Vector{String}, states, pdims, id, file; max_table_cells) -> Array{Float64}
 
 Build a deterministic `(parents..., child)` table from one resulting state per parent
-configuration, listed row-major over the parents.
+configuration, listed row-major over the parents. The size of the table is checked
+against `max_table_cells` before it is allocated.
 """
-function _onehot(entries::AbstractVector{<:AbstractString}, states, pdims::Tuple, id, file)
-    n = prod(pdims; init=1)
+function _onehot(entries::AbstractVector{<:AbstractString}, states, pdims::Tuple, id, file;
+                 max_table_cells::Integer)
+    _table_length((pdims..., length(states)), "the table of $(id)", file; max_table_cells)
+    n = _table_length(pdims, "the function table of $(id)", file;
+                      max_table_cells=typemax(Int))
     length(entries) == n ||
         throw(ParseError("function table of $(id) has $(length(entries)) entries; expected $(n)";
                          file))
@@ -320,9 +413,10 @@ end
 
 Check the names of `ir` *after* the sanitisation the writer for `fmt` applies: two variable
 (or MAU) ids, or two states of the same variable, that become the same identifier raise
-[`IdentifierCollisionError`](@ref), and an identifier longer than the format allows raises
-[`IdentifierLengthError`](@ref). Validation alone is not enough, because sanitisation happens
-after it and can map distinct IR names onto one file identifier.
+[`IdentifierCollisionError`](@ref), an identifier longer than the format allows raises
+[`IdentifierLengthError`](@ref), and a name the format still cannot hold (`_unwritable`)
+raises [`ValidationError`](@ref). Validation alone is not enough, because sanitisation
+happens after it and can map distinct IR names onto one file identifier.
 """
 function _check_identifiers(ir::NetworkIR, fmt::NetworkFormat)
     name = format_name(fmt)
@@ -331,7 +425,9 @@ function _check_identifiers(ir::NetworkIR, fmt::NetworkFormat)
     if idfun !== nothing
         seen = Dict{String,String}()
         for v in ir.variables
-            _record_identifier!(seen, idfun(v.id), v.id, :network, :variable, limit, name)
+            word = idfun(v.id)
+            _check_writable_name(fmt, :variable, word, v.id, v.id)
+            _record_identifier!(seen, word, v.id, :network, :variable, limit, name)
         end
         if _supports_mau(fmt)
             for m in ir.mau
@@ -344,11 +440,35 @@ function _check_identifiers(ir::NetworkIR, fmt::NetworkFormat)
         for v in ir.variables
             seen = Dict{String,String}()
             for s in v.states
-                _record_identifier!(seen, stfun(s), s, v.id, :state, limit, name)
+                word = stfun(s)
+                _check_writable_name(fmt, :state, word, v.id, s)
+                _record_identifier!(seen, word, s, v.id, :state, limit, name)
             end
         end
     end
     return ir
+end
+
+# A sanitised name that the format still cannot hold: the reason, or `nothing`. Only the UAI
+# names file restricts names after sanitisation. It separates names by whitespace, so an
+# empty name would vanish and shift the names after it, and a line that starts with `#` is a
+# comment, so a variable id, which starts its line, cannot start with `#`.
+_unwritable(::NetworkFormat, kind::Symbol, word) = nothing
+function _unwritable(::UAI, kind::Symbol, word)
+    isempty(word) &&
+        return "the names file separates names by whitespace, so an empty name would vanish"
+    kind == :variable && startswith(word, '#') &&
+        return "a line of the names file that starts with # is a comment"
+    return nothing
+end
+
+function _check_writable_name(fmt::NetworkFormat, kind::Symbol, word, id, original)
+    why = _unwritable(fmt, kind, word)
+    why === nothing && return nothing
+    what = kind == :state ? "the state $(repr(string(original))) of $(id)" :
+           "the variable id $(repr(string(original)))"
+    throw(ValidationError(Symbol(id),
+                          "$(what) cannot be written in the $(format_name(fmt)) format: $(why); rename it"))
 end
 
 function _record_identifier!(seen::Dict{String,String}, sanitized::AbstractString, original,
@@ -361,6 +481,47 @@ function _record_identifier!(seen::Dict{String,String}, sanitized::AbstractStrin
                                        format))
     seen[String(sanitized)] = String(string(original))
     return seen
+end
+
+"""
+    _serialise(f) -> Vector{UInt8}
+
+The bytes that `f(io)` writes, collected in memory. The path methods of the writers
+serialise first, so that a writer that rejects its input raises before any file is
+touched, and then hand the bytes to `_write_atomic`.
+"""
+function _serialise(f)
+    io = IOBuffer()
+    f(io)
+    return take!(io)
+end
+
+"""
+    _write_atomic(path, bytes) -> path
+
+Replace the file at `path` with `bytes` in one step: write a temporary file in the same
+directory, then rename it over `path`. On any failure the temporary file is removed and
+`path` is left as it was, so a failed write never leaves a truncated or partial file. A
+symbolic link to an existing file is followed, so its target is replaced, as
+`open(path, "w")` would write through it, and an existing file keeps its permission bits.
+A missing directory raises `SystemError`, as `open` does.
+"""
+function _write_atomic(path::AbstractString, bytes::AbstractVector{UInt8})
+    target = islink(path) && isfile(path) ? realpath(path) : String(path)
+    dir = dirname(abspath(target))
+    # name the target, not the temporary file, when the directory is missing
+    isdir(dir) || throw(SystemError("opening file $(repr(String(path)))", 2))
+    tmp = joinpath(dir,
+                   "." * basename(target) * "." * string(rand(UInt64); base=16) * ".tmp")
+    try
+        open(io -> write(io, bytes), tmp, "w")
+        isfile(target) && chmod(tmp, filemode(target) & 0o777)
+        Base.rename(tmp, target)
+    catch
+        rm(tmp; force=true)
+        rethrow()
+    end
+    return path
 end
 
 """

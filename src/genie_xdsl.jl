@@ -47,17 +47,23 @@ function _xdsl_numbers(el, name, id, file)
 end
 
 """
-    read_xdsl(io::IO; file="<string>", strict=true, atol=1e-6, renormalize=false) -> NetworkIR
+    read_xdsl(io::IO; file="<string>", strict=true, atol=1e-6, renormalize=false,
+              max_states=65_536, max_table_cells=2^27) -> NetworkIR
 
 Parse a GeNIe `.xdsl` file. See [`GeNIeXDSL`](@ref).
 
 `<probabilities>`, `<resultingstates>` and `<utilities>` are read row-major over
 `(parents..., child)` with the child (or, for a utility, the last parent) fastest, as
 documented for the GeNIe / SMILE XDSL format [GeNIeDocs](@cite).
+
+A node with more than `max_states` states, or a table with more than `max_table_cells`
+cells, raises [`ParseError`](@ref) before its table is allocated.
 """
 function read_xdsl(io::IO; file::AbstractString="<string>", strict::Bool=true,
                    atol::Real=1e-6,
-                   renormalize::Bool=false)
+                   renormalize::Bool=false, max_states::Integer=DEFAULT_MAX_STATES,
+                   max_table_cells::Integer=DEFAULT_MAX_TABLE_CELLS)
+    _check_limits(max_states, max_table_cells)
     doc = try
         EzXML.parsexml(read(io, String))
     catch e
@@ -88,6 +94,10 @@ function read_xdsl(io::IO; file::AbstractString="<string>", strict::Bool=true,
                 throw(ParseError("a <state> of node $(id) has no id attribute"; file))
             push!(states, s["id"])
         end
+        # a node that becomes a variable has at most `max_states` states; a skipped one is
+        # not read
+        tag in ("cpt", "deterministic", "decision") &&
+            _check_states(length(states), "node $(id)", file, max_states)
         parents = Symbol.(_xdsl_words(el, "parents"))
         if tag == "cpt"
             push!(raws,
@@ -158,15 +168,17 @@ function read_xdsl(io::IO; file::AbstractString="<string>", strict::Bool=true,
         isempty(r.properties) || (extras[:properties] = r.properties)
         if r.tag == "cpt"
             dims = (pdims..., length(r.states))
-            length(r.numbers) == prod(dims) ||
-                throw(ParseError("<probabilities> of $(r.id) has $(length(r.numbers)) entries; expected $(prod(dims)) for parents $(r.parents) and $(length(r.states)) states";
+            n = _table_length(dims, "the <probabilities> of $(r.id)", file;
+                              max_table_cells)
+            length(r.numbers) == n ||
+                throw(ParseError("<probabilities> of $(r.id) has $(length(r.numbers)) entries; expected $(n) for parents $(r.parents) and $(length(r.states)) states";
                                  file))
             push!(vars,
                   IRVariable(id; title, kind=ChanceNode, states=r.states, parents=r.parents,
                              table=from_rowmajor(r.numbers, dims), position, comment,
                              extras))
         elseif r.tag == "deterministic"
-            table = _onehot(r.words, r.states, pdims, r.id, file)
+            table = _onehot(r.words, r.states, pdims, r.id, file; max_table_cells)
             push!(vars,
                   IRVariable(id; title, kind=ChanceNode, states=r.states, parents=r.parents,
                              table, deterministic=true, position, comment, extras))
@@ -176,7 +188,7 @@ function read_xdsl(io::IO; file::AbstractString="<string>", strict::Bool=true,
                              parents=r.parents,
                              position, comment, extras))
         else
-            n = prod(pdims; init=1)
+            n = _table_length(pdims, "the <utilities> of $(r.id)", file; max_table_cells)
             length(r.numbers) == n ||
                 throw(ParseError("<utilities> of $(r.id) has $(length(r.numbers)) entries; expected $(n) for parents $(r.parents)";
                                  file))

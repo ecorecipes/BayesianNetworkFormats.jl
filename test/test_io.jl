@@ -59,6 +59,76 @@
         end
     end
 
+    @testset "a failed write leaves the file as it was" begin
+        # `write_network` opened the file for writing before the writer validated the IR, so
+        # a rejected write left an empty file in place of the old one.
+        mktempdir() do dir
+            asia = read_network(fix("bif/asia.bif"))
+            bif = joinpath(dir, "keep.bif")
+            write(bif, "ORIGINAL")
+            decision = NetworkIR("d",
+                                 [IRVariable(:D; kind=DecisionNode, states=["a", "b"])])
+            @test_throws UnsupportedNodeError write_network(bif, decision)
+            @test read(bif, String) == "ORIGINAL"
+            # a failure part-way through serialising: extras that JSON cannot hold
+            json = joinpath(dir, "keep.bnir.json")
+            write(json, "ORIGINAL")
+            odd = NetworkIR("x",
+                            [IRVariable(:A; states=["a"], table=[1.0],
+                                        extras=Dict{Symbol,Any}(:f => sin))])
+            @test_throws ArgumentError write_network(json, odd)
+            @test_throws ArgumentError write_ir_json(json, odd)
+            @test read(json, String) == "ORIGINAL"
+            # a UAI file and its sidecar are both left alone when the names are rejected
+            uai = joinpath(dir, "keep.uai")
+            write(uai, "ORIGINAL")
+            write(uai * ".names", "ORIGINAL NAMES")
+            hash = NetworkIR("h",
+                             [IRVariable(Symbol("#x"); states=["a", "b"], table=[0.5, 0.5])])
+            @test_throws ValidationError write_network(uai, hash)
+            @test read(uai, String) == "ORIGINAL"
+            @test read(uai * ".names", String) == "ORIGINAL NAMES"
+            # an evidence file is checked sample by sample before it is replaced
+            evid = joinpath(dir, "keep.uai.evid")
+            write(evid, "ORIGINAL")
+            @test_throws ValidationError write_uai_evidence(evid,
+                                                            [Dict(:asia => "yes"),
+                                                             Dict(:nope => "yes")]; ir=asia)
+            @test read(evid, String) == "ORIGINAL"
+            # and no temporary file is left behind
+            @test sort(readdir(dir)) ==
+                  ["keep.bif", "keep.bnir.json", "keep.uai", "keep.uai.evid",
+                   "keep.uai.names"]
+            # a missing directory is still a `SystemError` that names the file asked for
+            nowhere = joinpath(dir, "missing", "x.bif")
+            e = try
+                write_network(nowhere, asia)
+                nothing
+            catch err
+                err
+            end
+            @test e isa SystemError
+            @test occursin("x.bif", sprint(showerror, e)) &&
+                  !occursin(".tmp", sprint(showerror, e))
+            # A write that succeeds replaces the file whole, keeps its permission bits and
+            # writes through a symbolic link, as writing in place did.
+            @test write_network(bif, asia) == bif
+            @test isequivalent(read_network(bif), asia)
+            if !Sys.iswindows()
+                chmod(bif, 0o640)
+                write_network(bif, asia)
+                @test filemode(bif) & 0o777 == 0o640
+                link = joinpath(dir, "link.bif")
+                symlink(bif, link)
+                small = NetworkIR("s",
+                                  [IRVariable(:A; states=["a", "b"], table=[0.5, 0.5])])
+                write_network(link, small)
+                @test islink(link)
+                @test [v.id for v in read_network(bif).variables] == [:A]
+            end
+        end
+    end
+
     @testset "the UAI names sidecar through read_network" begin
         mktempdir() do dir
             model = joinpath(dir, "m.uai")

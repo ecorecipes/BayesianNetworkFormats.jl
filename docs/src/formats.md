@@ -102,6 +102,9 @@ bnet Name {
   back as `levels` after `states`. A node with `statetitles` but neither `states`,
   `levels` nor `numstates` takes the titles as its state names. Titles are not
   identifiers, so a round trip through the writer sanitises them (`Year_1`).
+- A node with only `numstates = n` gets the states `s0`, `s1`, .... Like every count of
+  states, `n` is checked against `max_states` before any name is made (see
+  [Size limits](@ref)).
 - An **empty entry** in a parenthesised list (nothing between two commas) is Netica's way of
   writing "no value at this position". It keeps its place, because dropping it would shift
   every entry after it and so silently permute parent order or state order. Two forms occur
@@ -264,7 +267,18 @@ BAYES
   [LauritzenSpiegelhalter1988](@cite), and no other reading normalises.
 - Names: a sidecar `<file>.names` with an optional `network NAME` line and one
   `id state1 state2 ...` line per variable. The writer always produces it; without it the
-  reader synthesises `X0, X1, ...` and `s0, s1, ...`.
+  reader synthesises `X0, X1, ...` and `s0, s1, ...`. Blank lines and lines that start
+  with `#` are skipped, and only the first other line can name the network, so a variable
+  may be called `network` (the writer then always writes a `network` line first). Names are
+  separated by whitespace: the writer replaces whitespace inside a name by `_` with a
+  warning, and raises [`ValidationError`](@ref) for a name the sidecar cannot hold at all,
+  an empty id or state and an id that starts with `#`.
+- Counts are read item by item, never used as allocation sizes, so a count larger than the
+  file is a [`ParseError`](@ref) ("unexpected end of file"). Table sizes are multiplied with
+  an overflow check. A cardinality is checked against `max_states` as it is read, and the
+  size of a table against `max_table_cells` before its values are (see
+  [Size limits](@ref)), so a variable whose states the sidecar does not list gets at most
+  `max_states` generated names.
 - Evidence files (`<model>.uai.evid`) are read and written by [`read_uai_evidence`](@ref)
   and [`write_uai_evidence`](@ref).
 
@@ -274,6 +288,50 @@ The package's own serialisation, used for golden files: fixed key order, tables 
 `{"dims": [...], "values": [...]}` in Julia column-major order, and JSON3's
 `Infinity` / `-Infinity` for non-finite numbers (Netica levels). See
 [`write_ir_json`](@ref) and [`read_ir_json`](@ref).
+
+## Reading and writing files
+
+- Every reader, and [`detect_format`](@ref) when it reads the first bytes of a file, ignores
+  a leading UTF-8 byte-order mark, which Windows tools such as Netica and GeNIe often write.
+- Malformed content raises [`ParseError`](@ref), never a Base exception: a count, index or
+  table size that is fractional, negative or too large for a 64-bit integer, a table whose
+  dimensions multiply to more cells than a 64-bit integer can count, and a `.bnir.json`
+  text that is not JSON. The JSON text is always parsed as text, so a document whose
+  content is a file path is not JSON, rather than a pointer to that file. An exception from
+  the JSON parser that does not report bad text, an interrupt for example, propagates
+  unchanged.
+- Brackets nested more than 512 levels deep raise [`ParseError`](@ref) before they are
+  parsed, in Netica and HUGIN files (`(` and `{`) and in `.bnir.json` (`[` and `{`). Those
+  parsers recurse once per level, and about 100 000 levels, a 200 KB file, would overflow
+  the stack. Real files nest far less: at most 6 levels among the fixtures and 7 among the
+  EcologicalBayesianNetworks zoo models (`water.net`). The BIF and DSC readers do not
+  recurse, and GeNIe files stop at libxml2's own limit of 256 nested elements.
+- The path methods of [`write_network`](@ref), [`write_ir_json`](@ref) and
+  [`write_uai_evidence`](@ref) serialise everything first, so a rejected IR or sample raises
+  before any file is touched, and then replace each file in one step, by writing a temporary
+  file in the same directory and renaming it over the target. A failure never leaves a
+  truncated or partial file. An existing file keeps its permissions, and a symbolic link to
+  a file is written through.
+
+## Size limits
+
+A file declares the sizes that a reader allocates: the states of each variable, and the
+cells of each table, the product of the state counts of a variable and its parents. A short
+file can declare any size. A BIF `default` row, for example, fills a whole table, so a
+5.7 KB file can declare a table of 2^57 cells. [`read_network`](@ref) and every reader
+therefore take two keywords, checked before anything is allocated:
+
+| Keyword | Default | Limits |
+|---|---|---|
+| `max_states` | 65 536 | the states of one variable, named or generated (a Netica `numstates`, a UAI cardinality) |
+| `max_table_cells` | 2^27 (1 GiB of `Float64`) | the cells of one table, in every format |
+
+A file over either limit raises [`ParseError`](@ref), naming the variable, the size, the
+limit and the keyword; pass a larger value to read it, for example
+`read_network(path; max_table_cells=2^30)`. Both must be positive integers, or
+`ArgumentError` is raised. The defaults are far above every network the package has met:
+the largest fixture has 4 states and 54 cells per table, and the largest model of the
+EcologicalBayesianNetworks zoo, `mildew`, has 100 states and 280 000 cells.
 
 ## Compressed files
 

@@ -50,7 +50,8 @@ function _bif_numbers(ts::TokenStream)
 end
 
 """
-    read_bif(io::IO; file="<string>", strict=true, atol=1e-6, renormalize=false) -> NetworkIR
+    read_bif(io::IO; file="<string>", strict=true, atol=1e-6, renormalize=false,
+             max_states=65_536, max_table_cells=2^27) -> NetworkIR
 
 Parse a BIF file. See [`BIF`](@ref).
 
@@ -58,10 +59,16 @@ Both dialects of the Interchange Format for Bayesian Networks [Cozman1998](@cite
 the bnlearn / pgmpy row form `(s1, s2) v, v;`, whose rows are labelled by parent state names
 and so may appear in any order, and the specification's `table` form, whose numbers are in
 header order `(child, parents...)` with the last variable fastest.
+
+A variable with more than `max_states` states, or a table with more than
+`max_table_cells` cells, raises [`ParseError`](@ref) before anything is allocated. A
+`default` row fills a whole table, so a short file can declare a table of any size.
 """
 function read_bif(io::IO; file::AbstractString="<string>", strict::Bool=true,
                   atol::Real=1e-6,
-                  renormalize::Bool=false)
+                  renormalize::Bool=false, max_states::Integer=DEFAULT_MAX_STATES,
+                  max_table_cells::Integer=DEFAULT_MAX_TABLE_CELLS)
+    _check_limits(max_states, max_table_cells)
     ts = TokenStream(read(io, String), BIF_TOKENS; file)
     name = ""
     netprops = String[]
@@ -94,7 +101,9 @@ function read_bif(io::IO; file::AbstractString="<string>", strict::Bool=true,
                     next!(ts)
                     expect!(ts, :ident, "discrete")
                     expect!(ts, :punct, "[")
-                    n = expect_int!(ts)
+                    nt = peek(ts)
+                    n = _check_states(expect_int!(ts), "variable $(id)", ts.file,
+                                      max_states; line=nt.line, column=nt.column)
                     expect!(ts, :punct, "]")
                     expect!(ts, :punct, "{")
                     while !_is(peek(ts), :punct, "}")
@@ -149,6 +158,8 @@ function read_bif(io::IO; file::AbstractString="<string>", strict::Bool=true,
             parents_of[id] = parents
             n = length(states_of[id])
             pdims = Tuple(length(states_of[p]) for p in parents)
+            total = _table_length((pdims..., n), "the table of $(id)", ts.file;
+                                  max_table_cells, line=t.line, column=t.column)
             table = fill(NaN, pdims..., n)
             expect!(ts, :punct, "{")
             while !_is(peek(ts), :punct, "}")
@@ -157,9 +168,9 @@ function read_bif(io::IO; file::AbstractString="<string>", strict::Bool=true,
                     next!(ts)
                     vals = _bif_numbers(ts)
                     dims = (n, pdims...)
-                    length(vals) == prod(dims) ||
+                    length(vals) == total ||
                         parse_error(ts, a,
-                                    "table of $(id) has $(length(vals)) entries; expected $(prod(dims)) for parents $(parents) and $(n) states")
+                                    "table of $(id) has $(length(vals)) entries; expected $(total) for parents $(parents) and $(n) states")
                     A = from_rowmajor(vals, dims)              # (child, parents...)
                     table = isempty(pdims) ? A :
                             permutedims(A, (2:(length(pdims) + 1)..., 1))

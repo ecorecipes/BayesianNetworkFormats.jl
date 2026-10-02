@@ -6,7 +6,9 @@
 A lexical token. `kind` is `:ident`, `:number`, `:string`, `:stateindex`, `:punct` or
 `:eof`; `text` is the identifier / punctuation / unescaped string content; `value` is the
 `Float64` value of a number token or the 0-based index of a `#k` state-index token
-(`nothing` otherwise); `start`/`stop` are byte offsets into the source.
+(`nothing` otherwise); `start`/`stop` are byte offsets into the source. A `Float64` holds
+an index exactly only up to 2^53, so readers take a state index from the text with
+`state_index`.
 """
 struct Token
     kind::Symbol
@@ -295,6 +297,42 @@ function token_int(ts::TokenStream, t::Token)
     return Int(v)
 end
 expect_int!(ts::TokenStream) = token_int(ts, expect!(ts, :number))
+
+# The 0-based index a `#k` token spells, read exactly from its text. `tokenize` has checked
+# that the digits fit an `Int`, but `value` is a `Float64`, which rounds `#9223372036854775807`
+# up to 2^63, so `Int(t.value)` would raise an `InexactError` (ADR 0015). The reader then
+# checks the index against the node's states and raises `ParseError` when it is out of range.
+state_index(t::Token) = parse(Int, SubString(t.text, 2))
+
+# The deepest nesting a reader accepts, in every format: brackets in the token-based formats
+# and in JSON. The Netica and HUGIN parsers recurse once per `(` or `{`, and JSON3 once per
+# `[` or `{`, so a short, deeply nested file would overflow the stack (about 100 000 levels,
+# a 200 KB file, for Netica and HUGIN). Real files nest at most 7 levels deep. GeNIe files
+# are bounded by libxml2's own limit of 256 elements.
+const _MAX_NESTING = 512
+
+"""
+    check_nesting(ts) -> ts
+
+Raise [`ParseError`](@ref) at the first `(` or `{` that opens a level deeper than
+`_MAX_NESTING`, before a recursive-descent parser reads the tokens (ADR 0015: check, do not
+catch the `StackOverflowError`). A stray closing bracket does not lower the depth below
+zero.
+"""
+function check_nesting(ts::TokenStream)
+    depth = 0
+    for t in ts.tokens
+        t.kind == :punct || continue
+        if t.text == "(" || t.text == "{"
+            depth += 1
+            depth > _MAX_NESTING &&
+                parse_error(ts, t, "brackets nest more than $(_MAX_NESTING) levels deep")
+        elseif t.text == ")" || t.text == "}"
+            depth = max(depth - 1, 0)
+        end
+    end
+    return ts
+end
 
 function expect!(ts::TokenStream, kind::Symbol, text=nothing)
     t = peek(ts)

@@ -9,7 +9,12 @@
 #   example a negative `atol`, or `names` passed to a reader other than UAI's). A missing
 #   file raises Base's `SystemError`, and looking up a variable id that the IR does not
 #   have (`variable`, `marginal`) raises `KeyError`. `write_uai_evidence` checks sample
-#   content, so an unknown id or state there is a `ValidationError` (ADR 0015).
+#   content, so an unknown id or state there is a `ValidationError` (ADR 0015), as is a name
+#   that the UAI names sidecar cannot hold.
+# - Malformed file content raises `ParseError`, and is checked before it is used: a count
+#   or an index is converted with `token_int` or `_uai_count!`, a state index is read from
+#   its text, a table size is multiplied with `_table_length`, and no declared size is
+#   allocated before it is checked against the `max_states` and `max_table_cells` limits.
 # - The package has no ecosystem dependencies (ADR 0003), so there is no lower root to
 #   subtype. A docstring names another package's type as a code span, never with `@ref`.
 
@@ -113,6 +118,12 @@ end
 Raised by [`validate`](@ref) for structural problems: duplicate ids, unknown parents, wrong
 table sizes, cycles, decision nodes with tables, utility nodes used as parents. `id` is the
 variable concerned, or `:network` for network-level problems.
+
+Writers raise it too, before writing anything, for content that the IR allows and the
+format cannot hold: a missing table that the format requires, and a name that the UAI
+names sidecar cannot hold (an empty id or state, or an id that starts with `#`, which would
+make its line a comment). [`write_uai_evidence`](@ref) raises it for a variable or state
+that the network does not have.
 """
 struct ValidationError <: BayesianNetworkFormatsError
     id::Symbol

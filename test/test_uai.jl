@@ -63,6 +63,69 @@
         @test_throws ParseError parse_string("OTHER\n", UAI())
     end
 
+    @testset "names that the sidecar does not read back as written" begin
+        two(a, b; name="") = NetworkIR(name,
+                                       [IRVariable(a; states=["a", "b"], table=[0.5, 0.5]),
+                                        IRVariable(b; states=["c", "d"], table=[0.5, 0.5])])
+        mktempdir() do dir
+            path = joinpath(dir, "n.uai")
+            # The line of a first variable called `network` was read as the network name, so
+            # the names file listed one variable too few. The writer now always starts with a
+            # `network` line then, and only the first line can name the network.
+            for name in ("", "asia")
+                write_network(path, two(:network, :B; name))
+                back = read_network(path)
+                @test back.name == name
+                @test [v.id for v in back.variables] == [:network, :B]
+                @test variable(back, :network).states == ["a", "b"]
+            end
+            # A line that starts with `#` is a comment, so no variable id can start with one;
+            # it is rejected before any file is touched. A state can, as it never starts a line.
+            hash = two(Symbol("#x"), :B)
+            hashed = joinpath(dir, "h.uai")
+            e = try
+                write_network(hashed, hash)
+                nothing
+            catch err
+                err
+            end
+            @test e isa ValidationError && e.id == Symbol("#x")
+            @test occursin("comment", e.message)
+            @test !isfile(hashed) && !isfile(hashed * ".names")
+            @test_throws ValidationError write_string(hash, UAI())
+            @test_throws ValidationError BayesianNetworkFormats.write_uai_names(IOBuffer(),
+                                                                                hash)
+            write_network(path,
+                          NetworkIR("",
+                                    [IRVariable(:A; states=["#a", "b"], table=[0.5, 0.5])]))
+            @test variable(read_network(path), :A).states == ["#a", "b"]
+            # An empty name vanished from its line and shifted the names after it.
+            for bad in
+                (NetworkIR("", [IRVariable(:A; states=["", "b"], table=[0.5, 0.5])]),
+                 NetworkIR("",
+                           [IRVariable(Symbol(""); states=["a", "b"],
+                                       table=[0.5, 0.5])]))
+                @test_throws ValidationError write_string(bad, UAI())
+            end
+            # A newline in the network name started a line of its own, read as a variable.
+            # Whitespace in the name becomes one space, with the warning for renamed names.
+            @test_logs (:warn, r"whitespace-delimited") write_network(path,
+                                                                      two(:A, :B;
+                                                                          name="two\nlines"))
+            back = read_network(path)
+            @test back.name == "two lines"
+            @test [v.id for v in back.variables] == [:A, :B]
+            # Only the first line can name the network, so a second `network` line is a
+            # variable, as the writer now relies on.
+            model = joinpath(dir, "m.uai")
+            write(model, "BAYES 2 2 2 0")
+            write(model * ".names", "# names\nnetwork x\nnetwork a b\nB c d\n")
+            ir = read_network(model)
+            @test ir.name == "x"
+            @test [v.id for v in ir.variables] == [:network, :B]
+        end
+    end
+
     @testset "evidence files" begin
         asia = read_network(fix("uai/asia.uai"))
         mktempdir() do dir

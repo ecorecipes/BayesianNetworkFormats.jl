@@ -5,9 +5,9 @@
 
 Identify the format of `path` from its extension (`.dne`, `.xdsl`, `.net`, `.bif`, `.dsc`,
 `.uai`, `.bnir.json`) and, failing that, from its first bytes (`~->[DNET`, `<smile`, `net {`,
-`network`, `belief network`, `BAYES`/`MARKOV`). Gzip-compressed files raise
-[`FormatDetectionError`](@ref) asking for `gunzip`; the binary Netica `.neta` format is out of
-scope.
+`network`, `belief network`, `BAYES`/`MARKOV`), after a leading UTF-8 byte-order mark,
+which every reader ignores. Gzip-compressed files raise [`FormatDetectionError`](@ref)
+asking for `gunzip`; the binary Netica `.neta` format is out of scope.
 """
 function detect_format(path::AbstractString)
     lower = lowercase(path)
@@ -28,7 +28,7 @@ function detect_format(path::AbstractString)
     startswith(head, "\x1f\x8b") &&
         throw(FormatDetectionError(path,
                                    "$(path) is gzip-compressed; decompress it first (gunzip -k $(path))"))
-    fmt = _sniff(head)
+    fmt = _sniff(strip_bom(head))
     fmt === nothing && throw(FormatDetectionError(path,
                                                   "cannot detect the format of $(path) from its extension or contents"))
     return fmt
@@ -49,7 +49,8 @@ function _sniff(head::AbstractString)
 end
 
 """
-    read_network(path; format=nothing, strict=true, atol=1e-6, renormalize=false) -> NetworkIR
+    read_network(path; format=nothing, strict=true, atol=1e-6, renormalize=false,
+                 max_states=65_536, max_table_cells=2^27) -> NetworkIR
     read_network(io::IO, format; kwargs...)
 
 Read a network file into a [`NetworkIR`](@ref). The format is detected with
@@ -60,6 +61,14 @@ The result is validated (missing tables allowed); rows that do not sum to one wi
 raise [`NotNormalizedError`](@ref) unless `renormalize=true`. `names` is forwarded to
 the UAI reader as the path of a names sidecar and is an error for any other format.
 
+A file declares the sizes the reader allocates: the states of each variable, and the cells
+of each table (the product of the state counts of a variable and its parents). In every
+format, a variable with more than `max_states` states, named or generated (a Netica
+`numstates`, a UAI cardinality), and a table with more than `max_table_cells` cells raise
+[`ParseError`](@ref) before anything is allocated for them. The defaults, 65 536 states and
+2^27 cells (1 GiB of `Float64`), are far above the networks the package has met; raise them
+to read a larger one. Both must be positive integers, or `ArgumentError` is raised.
+
 ```julia
 ir = read_network(fixture_path("bif/asia.bif"))
 marginal(ir, :dysp)   # [0.436, 0.564]
@@ -67,23 +76,29 @@ marginal(ir, :dysp)   # [0.436, 0.564]
 """
 function read_network(path::AbstractString; format::Union{Nothing,NetworkFormat}=nothing,
                       strict::Bool=true, atol::Real=1e-6, renormalize::Bool=false,
-                      names=nothing)
+                      names=nothing, max_states::Integer=DEFAULT_MAX_STATES,
+                      max_table_cells::Integer=DEFAULT_MAX_TABLE_CELLS)
     fmt = format === nothing ? detect_format(path) : format
     isfile(path) || throw(SystemError("opening file $(repr(path))", 2))
     return open(path) do io
-        return read_network(io, fmt; file=path, strict, atol, renormalize, names)
+        return read_network(io, fmt; file=path, strict, atol, renormalize, names,
+                            max_states, max_table_cells)
     end
 end
 
 function read_network(io::IO, fmt::NetworkFormat; file::AbstractString="<string>",
                       strict::Bool=true,
-                      atol::Real=1e-6, renormalize::Bool=false, names=nothing)
+                      atol::Real=1e-6, renormalize::Bool=false, names=nothing,
+                      max_states::Integer=DEFAULT_MAX_STATES,
+                      max_table_cells::Integer=DEFAULT_MAX_TABLE_CELLS)
+    _check_limits(max_states, max_table_cells)
     if names !== nothing
         fmt isa UAI ||
             throw(ArgumentError("the names keyword is only supported by the UAI format, not by $(format_name(fmt))"))
-        return read_uai(io; file, strict, atol, renormalize, names)
+        return read_uai(io; file, strict, atol, renormalize, names, max_states,
+                        max_table_cells)
     end
-    return _read(fmt, io; file, strict, atol, renormalize)
+    return _read(fmt, io; file, strict, atol, renormalize, max_states, max_table_cells)
 end
 
 _read(::NeticaDNE, io; kw...) = read_dne(io; kw...)
@@ -92,8 +107,9 @@ _read(::HuginNET, io; kw...) = read_net(io; kw...)
 _read(::BIF, io; kw...) = read_bif(io; kw...)
 _read(::DSC, io; kw...) = read_dsc(io; kw...)
 _read(::UAI, io; kw...) = read_uai(io; kw...)
-function _read(::IRJSON, io; file, strict, atol, renormalize)
-    return validate(read_ir_json(io; file); atol, renormalize, allow_missing_tables=true)
+function _read(::IRJSON, io; file, strict, atol, renormalize, max_states, max_table_cells)
+    return validate(read_ir_json(io; file, max_states, max_table_cells); atol, renormalize,
+                    allow_missing_tables=true)
 end
 
 """
@@ -104,14 +120,20 @@ Write `ir` in the given format (detected from the extension of `path` when `form
 `nothing`). The writer validates the IR first and raises [`UnsupportedNodeError`](@ref) for
 node kinds the format cannot hold (decisions and utilities in BIF/DSC/UAI, MAU nodes with
 non-unit weights in Netica/HUGIN). Writing `.uai` also writes the `<path>.names` sidecar.
+
+The path method serialises everything before it touches a file, so an IR that the writer
+rejects leaves an existing file as it was. Each file is then replaced in one step, by
+writing a temporary file in the same directory and renaming it over the target, so a
+failure part-way never leaves a truncated or partial file. An existing file keeps its
+permissions, and a symbolic link to a file is written through.
 """
 function write_network(path::AbstractString, ir::NetworkIR;
                        format::Union{Nothing,NetworkFormat}=nothing)
     fmt = format === nothing ? detect_format(path) : format
-    open(path, "w") do io
-        return write_network(io, ir, fmt)
-    end
-    fmt isa UAI && open(io -> write_uai_names(io, ir), path * ".names", "w")
+    model = _serialise(io -> write_network(io, ir, fmt))
+    names = fmt isa UAI ? _serialise(io -> write_uai_names(io, ir)) : nothing
+    _write_atomic(path, model)
+    names === nothing || _write_atomic(path * ".names", names)
     return path
 end
 

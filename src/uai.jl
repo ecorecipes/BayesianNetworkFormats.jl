@@ -16,19 +16,27 @@
 
 Read a `.names` sidecar. Returns the network name (`""` if absent), the variable ids and the
 state names per variable (`nothing` for variables without listed states).
+
+Blank lines and lines that start with `#` are skipped. The first other line names the
+network when its first word is `network`; every later line names a variable, so a variable
+may itself be called `network`. A leading UTF-8 byte-order mark is ignored, as by every
+reader.
 """
 function read_uai_names(path::AbstractString)
     name = ""
     ids = Symbol[]
     states = Vector{Union{Nothing,Vector{String}}}()
-    for line in eachline(path)
+    first = true
+    for line in eachsplit(strip_bom(read(path, String)), '\n')
         s = strip(line)
         (isempty(s) || startswith(s, "#")) && continue
         words = split(s)
-        if words[1] == "network" && isempty(ids)
-            name = length(words) > 1 ? join(words[2:end], " ") : ""
+        if first && words[1] == "network"
+            name = join(words[2:end], " ")
+            first = false
             continue
         end
+        first = false
         push!(ids, Symbol(words[1]))
         push!(states, length(words) > 1 ? String.(words[2:end]) : nothing)
     end
@@ -68,7 +76,7 @@ end
 
 """
     read_uai(io::IO; file="<string>", strict=true, atol=1e-6, renormalize=false,
-             names=nothing) -> NetworkIR
+             names=nothing, max_states=65_536, max_table_cells=2^27) -> NetworkIR
 
 Parse a UAI `BAYES` file. `names` is the path of a sidecar names file; by default
 `<file>.names` is used when it exists. `MARKOV` files raise [`UnsupportedNodeError`](@ref).
@@ -76,10 +84,20 @@ Parse a UAI `BAYES` file. `names` is the path of a sidecar names file; by defaul
 Following the UAI model-format description [UAIFormat](@cite), the **last** variable of each
 function scope is the child and the table that follows is listed with that last scope
 variable varying fastest, so a scope is `(parents..., child)` in IR order.
+
+Malformed content raises [`ParseError`](@ref) (ADR 0015). A count is never an allocation
+size: every list grows one item per word read, so a count larger than the file ends in
+"unexpected end of file", and table sizes are multiplied with an overflow check. A
+cardinality larger than `max_states`, or a table with more than `max_table_cells` cells,
+raises `ParseError` before anything is allocated for it, so a variable whose states the
+names file does not list gets at most `max_states` generated names `s0`, `s1`, ....
 """
 function read_uai(io::IO; file::AbstractString="<string>", strict::Bool=true,
                   atol::Real=1e-6,
-                  renormalize::Bool=false, names=nothing)
+                  renormalize::Bool=false, names=nothing,
+                  max_states::Integer=DEFAULT_MAX_STATES,
+                  max_table_cells::Integer=DEFAULT_MAX_TABLE_CELLS)
+    _check_limits(max_states, max_table_cells)
     words = split(strip_bom(read(io, String)))
     isempty(words) && throw(ParseError("empty UAI file"; file))
     pos = Ref(1)
@@ -89,40 +107,51 @@ function read_uai(io::IO; file::AbstractString="<string>", strict::Bool=true,
                                                        "$(file) is a MARKOV network; only BAYES networks can be read into the IR"))
         throw(ParseError("expected BAYES or MARKOV, got $(repr(kind))"; file))
     end
+    # Each list grows by one item per word read, never from the count that precedes it, so a
+    # count of 10^15 reaches the end of the file, not an allocation of 10^15 items.
     nvar = _uai_count!(words, pos, file, "number of variables")
-    cards = [_uai_count!(words, pos, file, "cardinality of variable $(i - 1)")
-             for i in 1:nvar]
+    cards = Int[]
+    for i in 1:nvar
+        card = _uai_count!(words, pos, file, "cardinality of variable $(i - 1)")
+        push!(cards, _check_states(card, "variable $(i - 1)", file, max_states))
+    end
     nfun = _uai_count!(words, pos, file, "number of functions")
-    scopes = Vector{Vector{Int}}(undef, nfun)
+    scopes = Vector{Int}[]
     for f in 1:nfun
         k = _uai_int!(words, pos, file, "size of scope $(f - 1)")
         # the last variable of a scope is the function's child, so a scope is never empty
         k >= 1 ||
             throw(ParseError("size of scope $(f - 1) must be at least 1, got $(k)"; file))
-        scopes[f] = [_uai_int!(words, pos, file, "scope $(f - 1)") for _ in 1:k]
-        for v in scopes[f]
+        scope = Int[]
+        for _ in 1:k
+            v = _uai_int!(words, pos, file, "scope $(f - 1)")
             0 <= v < nvar ||
                 throw(ParseError("scope $(f - 1) references variable $(v); only $(nvar) variables are declared";
                                  file))
+            push!(scope, v)
         end
+        push!(scopes, scope)
     end
-    tables = Vector{Vector{Float64}}(undef, nfun)
+    tables = Vector{Float64}[]
     for f in 1:nfun
         n = _uai_int!(words, pos, file, "size of table $(f - 1)")
-        expected = prod(cards[s + 1] for s in scopes[f]; init=1)
+        expected = _table_length((cards[s + 1] for s in scopes[f]),
+                                 "table $(f - 1) (of variable $(scopes[f][end]))", file;
+                                 max_table_cells)
         n == expected ||
             throw(ParseError("table $(f - 1) declares $(n) entries; scope $(scopes[f]) needs $(expected)";
                              file))
-        tables[f] = [_uai_float!(words, pos, file, "table $(f - 1)") for _ in 1:n]
+        vals = Float64[]
+        for _ in 1:n
+            push!(vals, _uai_float!(words, pos, file, "table $(f - 1)"))
+        end
+        push!(tables, vals)
     end
     pos[] <= length(words) &&
         throw(ParseError("trailing data after the last table: $(repr(words[pos[]]))"; file))
     name = ""
     ids = [Symbol("X$(i - 1)") for i in 1:nvar]
-    states = Vector{Vector{String}}(undef, nvar)
-    for i in 1:nvar
-        states[i] = ["s$(k - 1)" for k in 1:cards[i]]
-    end
+    listed = Vector{Union{Nothing,Vector{String}}}(nothing, nvar)
     sidecar = names === nothing ? (file * ".names") : String(names)
     if isfile(sidecar)
         name, sid, sstates = read_uai_names(sidecar)
@@ -135,10 +164,15 @@ function read_uai(io::IO; file::AbstractString="<string>", strict::Bool=true,
                 length(sstates[i]) == cards[i] ||
                     throw(ParseError("variable $(sid[i]) lists $(length(sstates[i])) states; the UAI file says $(cards[i])";
                                      file=sidecar))
-                states[i] = sstates[i]
+                listed[i] = sstates[i]
             end
         end
     end
+    # A variable whose states are not listed gets generated names, at most `max_states`.
+    states = Vector{String}[listed[i] === nothing ?
+                            _unnamed_states(cards[i], "variable $(ids[i])", file,
+                                            max_states) :
+                            listed[i] for i in 1:nvar]
     parents_of = Dict{Int,Vector{Int}}()
     table_of = Dict{Int,Array{Float64}}()
     for f in 1:nfun
@@ -167,7 +201,8 @@ end
 
 Write the `BAYES` model file. Use [`write_uai_names`](@ref) for the sidecar (done
 automatically by [`write_network`](@ref)). Chance nodes only; variables are numbered in
-source order.
+source order. The names are checked as the sidecar will hold them, so a name that it cannot
+hold raises here too, before anything is written.
 """
 function write_uai(io::IO, ir::NetworkIR)
     _check_writable(ir, UAI())
@@ -197,20 +232,32 @@ end
 """
     write_uai_names(io::IO, ir::NetworkIR)
 
-Write the `.names` sidecar: an optional `network NAME` line, then one line per variable with
-its id followed by its state names.
+Write the `.names` sidecar: a `network NAME` line, then one line per variable with its id
+followed by its state names. The network line is written when `ir` has a name, and also
+when the first variable is called `network`, so that [`read_uai_names`](@ref) reads that
+variable's line as a variable and not as the name of the network.
 
 The sidecar is whitespace-delimited, so a name containing whitespace cannot be written as
-it stands and has its whitespace replaced by `_`. That is a lossy rename -- `"Rainfall
-(mm)"` is written `Rainfall_(mm)` and reads back that way -- so it is reported with a
-warning rather than done silently. `_check_identifiers` catches the case where two names
-collide after renaming; this warns about the rename itself.
+it stands and has its whitespace replaced by `_` (in the network name, each run of
+whitespace becomes one space). That is a lossy rename -- `"Rainfall (mm)"` is written
+`Rainfall_(mm)` and reads back that way -- so it is reported with a warning rather than
+done silently. Before writing anything, the names are checked as [`write_uai`](@ref)
+checks them: two names that collide after renaming raise
+[`IdentifierCollisionError`](@ref), and a name that the sidecar cannot hold raises
+[`ValidationError`](@ref). Those are an empty id or state name, which would vanish from its
+line, and an id that starts with `#`, whose line would be read as a comment.
 """
 function write_uai_names(io::IO, ir::NetworkIR)
+    _check_identifiers(ir, UAI())
+    netname = join(split(ir.name), " ")
+    renamed = String[]
+    netname == ir.name || push!(renamed, string(ir.name, " -> ", netname))
     println(io,
             "# variable and state names for the UAI file; written by BayesianNetworkFormats.jl")
-    isempty(ir.name) || println(io, "network ", ir.name)
-    renamed = String[]
+    first_is_network = !isempty(ir.variables) && _uai_word(ir.variables[1].id) == "network"
+    if !isempty(netname) || first_is_network
+        println(io, isempty(netname) ? "network" : "network " * netname)
+    end
     for v in ir.variables
         for name in vcat(string(v.id), v.states)
             word = _uai_word(name)
@@ -256,7 +303,9 @@ function read_uai_evidence(path::AbstractString; ir::Union{Nothing,NetworkIR}=no
         k >= 0 ||
             throw(ParseError("evidence sample declares $(k) pairs; the count must be nonnegative";
                              file=path))
-        pos + 2k - 1 <= length(ints) ||
+        # compare `k` with the pairs that remain: `pos + 2k` overflows for a count near
+        # typemax(Int), and the wrapped value would pass the check (ADR 0015)
+        k <= (length(ints) - pos + 1) ÷ 2 ||
             throw(ParseError("evidence sample declares $(k) pairs but the file ends early";
                              file=path))
         s = [ints[pos + 2j] => ints[pos + 2j + 1] for j in 0:(k - 1)]
@@ -308,11 +357,14 @@ end
 
 Write a UAI evidence file. Each sample is a `Dict` (or vector of pairs) mapping 0-based
 variable indices to 0-based state indices, or, when `ir` is given, variable ids to state names;
-an id or a state that `ir` does not have raises [`ValidationError`](@ref).
+an id or a state that `ir` does not have raises [`ValidationError`](@ref). Every sample is
+checked before the file is touched, and the file is then replaced in one step (a temporary
+file in the same directory, renamed over `path`), so a failure leaves an existing file as it
+was.
 """
 function write_uai_evidence(path::AbstractString, samples;
                             ir::Union{Nothing,NetworkIR}=nothing)
-    open(path, "w") do io
+    bytes = _serialise() do io
         println(io, length(samples))
         for s in samples
             pairs = Pair{Int,Int}[]
@@ -333,5 +385,6 @@ function write_uai_evidence(path::AbstractString, samples;
             println(io, length(pairs), " ", join(("$(a) $(b)" for (a, b) in pairs), " "))
         end
     end
+    _write_atomic(path, bytes)
     return path
 end

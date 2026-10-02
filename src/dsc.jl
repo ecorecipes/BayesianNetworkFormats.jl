@@ -33,17 +33,23 @@ function _dsc_skip_statement!(ts::TokenStream)
 end
 
 """
-    read_dsc(io::IO; file="<string>", strict=true, atol=1e-6, renormalize=false) -> NetworkIR
+    read_dsc(io::IO; file="<string>", strict=true, atol=1e-6, renormalize=false,
+             max_states=65_536, max_table_cells=2^27) -> NetworkIR
 
 Parse a `.dsc` file. See [`DSC`](@ref).
 
 The `.dsc` grammar is the one written by MSBNx [Kadie2001](@cite) and by bnlearn: a
 `probability` block holds one row per parent configuration, labelled with 0-based state
 indices in parent order, so row order does not matter.
+
+A node with more than `max_states` states, or a table with more than `max_table_cells`
+cells, raises [`ParseError`](@ref) before anything is allocated.
 """
 function read_dsc(io::IO; file::AbstractString="<string>", strict::Bool=true,
                   atol::Real=1e-6,
-                  renormalize::Bool=false)
+                  renormalize::Bool=false, max_states::Integer=DEFAULT_MAX_STATES,
+                  max_table_cells::Integer=DEFAULT_MAX_TABLE_CELLS)
+    _check_limits(max_states, max_table_cells)
     ts = TokenStream(read(io, String), DSC_TOKENS; file)
     name = ""
     order = Symbol[]
@@ -70,7 +76,9 @@ function read_dsc(io::IO; file::AbstractString="<string>", strict::Bool=true,
                     accept!(ts, :punct, ":") === nothing && accept!(ts, :punct, "=")
                     expect!(ts, :ident, "discrete")
                     expect!(ts, :punct, "[")
-                    n = expect_int!(ts)
+                    nt = peek(ts)
+                    n = _check_states(expect_int!(ts), "node $(id)", ts.file, max_states;
+                                      line=nt.line, column=nt.column)
                     expect!(ts, :punct, "]")
                     expect!(ts, :punct, "=")
                     expect!(ts, :punct, "{")
@@ -129,6 +137,8 @@ function read_dsc(io::IO; file::AbstractString="<string>", strict::Bool=true,
             parents_of[id] = parents
             n = length(states_of[id])
             pdims = Tuple(length(states_of[p]) for p in parents)
+            _table_length((pdims..., n), "the table of $(id)", ts.file;
+                          max_table_cells, line=t.line, column=t.column)
             table = fill(NaN, pdims..., n)
             expect!(ts, :punct, "{")
             while !_is(peek(ts), :punct, "}")

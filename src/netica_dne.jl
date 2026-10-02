@@ -80,7 +80,7 @@ function _dne_value(ts::TokenStream)
         return t.text
     elseif t.kind == :stateindex
         next!(ts)
-        return DneStateIndex(Int(t.value))
+        return DneStateIndex(state_index(t))
     elseif t.kind == :ident
         next!(ts)
         _is(peek(ts), :punct, "{") && return _dne_block(ts, t.text, "")
@@ -150,7 +150,8 @@ const _DNE_SYMBOLS = Dict{Symbol,Float64}(Symbol("@imposs") => 0.0, :INFINITY =>
                                           :FALSE => 0.0)
 
 """
-    read_dne(io::IO; file="<string>", strict=true, atol=1e-6, renormalize=false) -> NetworkIR
+    read_dne(io::IO; file="<string>", strict=true, atol=1e-6, renormalize=false,
+             max_states=65_536, max_table_cells=2^27) -> NetworkIR
 
 Parse a Netica `.dne` file. See [`NeticaDNE`](@ref).
 
@@ -159,11 +160,17 @@ Parse a Netica `.dne` file. See [`NeticaDNE`](@ref).
 of the node (a one-hot row in `probs`, the state itself in a `functable`), and `evidence`
 as a finding kept in `extras[:evidence]`; `levels` gives the interval or value of each state.
 These semantics follow the Netica file-format documentation [NeticaFileFormats](@cite).
+
+A node with more than `max_states` states, named or counted by `numstates`, or a table with
+more than `max_table_cells` cells, raises [`ParseError`](@ref) before anything is
+allocated for it, as do brackets nested more than 512 levels deep, before they are parsed.
 """
 function read_dne(io::IO; file::AbstractString="<string>", strict::Bool=true,
                   atol::Real=1e-6,
-                  renormalize::Bool=false)
-    ts = TokenStream(read(io, String), DNE_TOKENS; file)
+                  renormalize::Bool=false, max_states::Integer=DEFAULT_MAX_STATES,
+                  max_table_cells::Integer=DEFAULT_MAX_TABLE_CELLS)
+    _check_limits(max_states, max_table_cells)
+    ts = check_nesting(TokenStream(read(io, String), DNE_TOKENS; file))
     while !(_is(peek(ts), :ident, "bnet") || peek(ts).kind == :eof)
         next!(ts)
     end
@@ -171,13 +178,14 @@ function read_dne(io::IO; file::AbstractString="<string>", strict::Bool=true,
     next!(ts)
     name = expect!(ts, :ident).text
     bnet = _dne_block(ts, "bnet", name)
-    return _dne_network(bnet, file, strict, atol, renormalize)
+    return _dne_network(bnet, file, strict, atol, renormalize, max_states, max_table_cells)
 end
 
 _dne_sym(x) = x isa Symbol ? x : Symbol(string(x))
 _dne_list(x) = x isa AbstractVector ? x : Any[x]
 
-function _dne_network(bnet::DneBlock, file, strict, atol, renormalize)
+function _dne_network(bnet::DneBlock, file, strict, atol, renormalize,
+                      max_states::Integer, max_table_cells::Integer)
     skipped = Dict{String,Any}[]
     states_of = Dict{Symbol,Vector{String}}()
     dropped = Dict{Symbol,String}()          # node id => node type, for accurate messages
@@ -206,7 +214,7 @@ function _dne_network(bnet::DneBlock, file, strict, atol, renormalize)
             dropped[Symbol(id)] = "state with no name"
             continue
         end
-        states = _dne_states(nb, kind, file)
+        states = _dne_states(nb, kind, file, max_states)
         if states === nothing
             strict &&
                 throw(UnsupportedNodeError(id, "continuous node without levels", :dne))
@@ -219,7 +227,7 @@ function _dne_network(bnet::DneBlock, file, strict, atol, renormalize)
     end
     vars = IRVariable[]
     for nb in keep
-        v = _dne_variable(nb, states_of, file, strict, skipped, dropped)
+        v = _dne_variable(nb, states_of, file, strict, skipped, dropped; max_table_cells)
         v === nothing || push!(vars, v)
     end
     _drop_orphans!(vars, skipped)
@@ -248,9 +256,28 @@ end
 # State names, in order of preference: `states`; `levels` (one value per state of a
 # discrete node, named by `statetitles` when present, or the interval labels of a
 # continuous node); `statetitles` alone; `numstates`. `nothing` for a continuous node
-# without levels. `states` with an empty entry is rejected by the caller.
-function _dne_states(nb::DneBlock, kind::Symbol, file)
+# without levels. `states` with an empty entry is rejected by the caller. However they
+# arise, a node has at most `max_states` states; a `numstates` count, which names none of
+# them, is checked before their names are generated (`_unnamed_states`).
+function _dne_states(nb::DneBlock, kind::Symbol, file, max_states::Integer)
     kind == :UTILITY && return String[]
+    named = _dne_named_states(nb, file)
+    if named !== nothing
+        _check_states(length(named), "node $(nb.name)", file, max_states)
+        return named
+    end
+    numstates = _dne_attr(nb, "numstates")
+    numstates === nothing && return nothing
+    (numstates isa Real && !(numstates isa Bool) && isinteger(numstates) &&
+     0 <= numstates < 2.0^63) ||
+        throw(ParseError("numstates of node $(nb.name) must be a nonnegative integer, got $(repr(numstates))";
+                         file))
+    return _unnamed_states(Int(numstates), "node $(nb.name)", file, max_states)
+end
+
+# The state names that a node lists through `states`, `levels` or `statetitles`, or
+# `nothing` when it lists none.
+function _dne_named_states(nb::DneBlock, file)
     states = _dne_attr(nb, "states")
     states === nothing || return String[_dne_state_name(s) for s in _dne_list(states)]
     titles = _dne_attr(nb, "statetitles")
@@ -266,18 +293,11 @@ function _dne_states(nb::DneBlock, kind::Symbol, file)
         titles !== nothing && length(titles) == length(lv) && return titles
         return String[_fmt_coord(x) for x in lv]
     end
-    titles === nothing || return titles
-    numstates = _dne_attr(nb, "numstates")
-    numstates === nothing && return nothing
-    (numstates isa Real && !(numstates isa Bool) && isinteger(numstates) &&
-     0 <= numstates < 2.0^63) ||
-        throw(ParseError("numstates of node $(nb.name) must be a nonnegative integer, got $(repr(numstates))";
-                         file))
-    return String["s$(i - 1)" for i in 1:Int(numstates)]
+    return titles
 end
 
 function _dne_variable(nb::DneBlock, states_of, file, strict, skipped,
-                       dropped=Dict{Symbol,String}())
+                       dropped=Dict{Symbol,String}(); max_table_cells::Integer)
     id = Symbol(nb.name)
     kind = _dne_sym(_dne_attr(nb, "kind", :NATURE))
     plist = _dne_list(_dne_attr(nb, "parents", Any[]))
@@ -363,15 +383,20 @@ function _dne_variable(nb::DneBlock, states_of, file, strict, skipped,
         functable = _dne_attr(nb, "functable")
         probs = _dne_attr(nb, "probs")
         if chance == :DETERMIN && functable !== nothing
-            table = _dne_onehot(functable, states, pdims, id, extras, file)
+            table = _dne_onehot(functable, states, pdims, id, extras, file;
+                                max_table_cells)
             deterministic = true
         elseif probs !== nothing
+            dims = (pdims..., length(states))
+            n = _table_length(dims, "the probs of $(id)", file; max_table_cells)
+            # A `#k` entry stands for a whole row, so the values are counted before the rows
+            # are built: a long list of `#k` would otherwise allocate rows without bound.
+            nvals = _dne_value_count(probs, length(states))
+            nvals == n ||
+                throw(ParseError("probs of $(id) has $(nvals) entries; expected $(n) for parents $(parents) and $(length(states)) states";
+                                 file))
             probs = _dne_expand_state_indices(probs, states, id, file)
             vals = _flatten_numbers(probs, id, file; symbols=_DNE_SYMBOLS)
-            dims = (pdims..., length(states))
-            length(vals) == prod(dims) ||
-                throw(ParseError("probs of $(id) has $(length(vals)) entries; expected $(prod(dims)) for parents $(parents) and $(length(states)) states";
-                                 file))
             table = from_rowmajor(vals, dims)
             deterministic = chance == :DETERMIN
         end
@@ -381,8 +406,10 @@ function _dne_variable(nb::DneBlock, states_of, file, strict, skipped,
         src = something(_dne_attr(nb, "functable"), _dne_attr(nb, "probs"), Some(nothing))
         if src !== nothing
             vals = _flatten_numbers(src, id, file; symbols=_DNE_SYMBOLS)
-            length(vals) == prod(pdims; init=1) ||
-                throw(ParseError("functable of utility $(id) has $(length(vals)) entries; expected $(prod(pdims; init=1)) for parents $(parents)";
+            n = _table_length(pdims, "the functable of utility $(id)", file;
+                              max_table_cells)
+            length(vals) == n ||
+                throw(ParseError("functable of utility $(id) has $(length(vals)) entries; expected $(n) for parents $(parents)";
                                  file))
             table = from_rowmajor(vals, pdims)
         end
@@ -397,7 +424,7 @@ end
 # Entries of a `functable` are state names, `#k` state indices, or numbers: a state value
 # of a discrete node with `levels`, or a value inside one of the intervals of a continuous
 # node.
-function _dne_onehot(functable, states, pdims, id, extras, file)
+function _dne_onehot(functable, states, pdims, id, extras, file; max_table_cells::Integer)
     entries = Any[]
     _dne_flatten!(entries, functable)
     names = String[]
@@ -427,7 +454,7 @@ function _dne_onehot(functable, states, pdims, id, extras, file)
             throw(ParseError("unexpected entry $(repr(e)) in the functable of $(id)"; file))
         end
     end
-    return _onehot(names, states, pdims, id, file)
+    return _onehot(names, states, pdims, id, file; max_table_cells)
 end
 
 function _dne_flatten!(out, x)
@@ -445,6 +472,21 @@ function _dne_state_number(si::DneStateIndex, states, id, file)
         throw(ParseError("state index $(si) of node $(id) is out of range; the node has $(length(states)) states";
                          file))
     return si.index + 1
+end
+
+# The number of values of a `probs` value once each `#k` stands for its one-hot row of
+# `nstates` values: the length of `_flatten_numbers` after `_dne_expand_state_indices`, when
+# that succeeds, counted without building any row (saturating at `typemax(Int)`).
+function _dne_value_count(x, nstates::Int)
+    x isa DneStateIndex && return nstates
+    x isa AbstractVector || return 1
+    total = 0
+    for y in x
+        total, overflow = Base.Checked.add_with_overflow(total,
+                                                         _dne_value_count(y, nstates))
+        overflow && return typemax(Int)
+    end
+    return total
 end
 
 # Replace every `#k` in a `probs` value by the one-hot row over the node's states.

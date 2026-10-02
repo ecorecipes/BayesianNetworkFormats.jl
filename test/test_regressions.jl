@@ -66,4 +66,27 @@ end
         @test length(ir.variables) == length(plain.variables)
         @test [v.id for v in ir.variables] == [v.id for v in plain.variables]
     end
+    # The JSON reader, the UAI names file and format detection by content kept the mark: a
+    # `.bnir.json` was not JSON, the first line of a names file became a variable, and a
+    # file without a known extension was not recognised.
+    dir = mktempdir()
+    json = joinpath(dir, "bom.bnir.json")
+    write(json, "﻿" * read(fix("golden/bif_asia.bnir.json"), String))
+    @test isequivalent(read_network(json), golden("bif_asia.bnir.json"); source=false)
+    for (_, rel) in (cases..., ("json", "golden/bif_asia.bnir.json"))
+        sniffed = joinpath(dir, "sniffed.txt")
+        write(sniffed, "﻿" * read(fix(rel), String))
+        @test detect_format(sniffed) == detect_format(fix(rel))
+    end
+    model = joinpath(dir, "m.uai")
+    cp(fix("uai/asia.uai"), model)
+    names = read(fix("uai/asia.uai.names"), String)
+    # the mark before the comment line, and before the `network` line
+    for text in (names, replace(names, r"^#[^\n]*\n" => ""))
+        write(model * ".names", "﻿" * text)
+        withnames = read_network(model)
+        @test withnames.name == "asia"
+        @test [v.id for v in withnames.variables] ==
+              [v.id for v in read_network(fix("uai/asia.uai")).variables]
+    end
 end

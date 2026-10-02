@@ -84,7 +84,10 @@ end
     write_ir_json(path::AbstractString, ir::NetworkIR)
 
 Serialise `ir` to the package's JSON representation (`*.bnir.json`) with deterministic key
-order. Tables are stored as `{"dims", "values"}` in Julia column-major order.
+order. Tables are stored as `{"dims", "values"}` in Julia column-major order. The path
+method serialises `ir` before touching the file and then replaces it in one step (a
+temporary file in the same directory, renamed over `path`), so a failure leaves an existing
+file as it was.
 """
 function write_ir_json(io::IO, ir::NetworkIR)
     doc = (format="bnir", version=_BNIR_VERSION, name=ir.name, source_format=ir.format,
@@ -97,7 +100,8 @@ function write_ir_json(io::IO, ir::NetworkIR)
 end
 
 function write_ir_json(path::AbstractString, ir::NetworkIR)
-    return open(io -> write_ir_json(io, ir), path, "w")
+    _write_atomic(path, _serialise(io -> write_ir_json(io, ir)))
+    return nothing
 end
 
 _from_json(x::JSON3.Object) = Dict{String,Any}(string(k) => _from_json(v) for (k, v) in x)
@@ -150,7 +154,7 @@ function _json_extras(x, what, file)
     return Dict{Symbol,Any}(Symbol(k) => _from_json(v) for (k, v) in x)
 end
 
-function _json_table(x, id, file)
+function _json_table(x, id, file, max_table_cells)
     x === nothing && return nothing
     what = "the table of $(id)"
     _json_require_object(x, what, file)
@@ -159,26 +163,82 @@ function _json_table(x, id, file)
         throw(ParseError("\"dims\" of $(what) must be nonnegative integers, got $(raw)";
                          file))
     dims = Int[Int(d) for d in raw]
+    n = _table_length(dims, what, file; max_table_cells)
     vals = _json_numbers(x, :values, what, file)
-    length(vals) == prod(dims; init=1) ||
+    length(vals) == n ||
         throw(ParseError("table of $(id) has $(length(vals)) values for dims $(dims)";
                          file))
     isempty(dims) && return fill(vals[1])
     return reshape(vals, dims...)
 end
 
-"""
-    read_ir_json(io::IO; file="<string>") -> NetworkIR
-    read_ir_json(path::AbstractString) -> NetworkIR
+# JSON3's parser recurses once per level of nesting and overflows the stack at about 7 500
+# levels, which a 15 KB text reaches, so the depth is checked before parsing against the
+# limit of every reader, `_MAX_NESTING` (ADR 0015: check, do not catch). A bnir document
+# nests about ten levels deep.
 
-Read a `*.bnir.json` file written by [`write_ir_json`](@ref).
-"""
-function read_ir_json(io::IO; file::AbstractString="<string>")
-    doc = try
-        JSON3.read(read(io, String); allow_inf=true)
+# Whether the brackets of a JSON text, outside its strings, nest at most `_MAX_NESTING`
+# levels deep.
+function _json_depth_ok(bytes::AbstractVector{UInt8})
+    depth = 0
+    in_string = false
+    escaped = false
+    for b in bytes
+        if in_string
+            if escaped
+                escaped = false
+            elseif b == UInt8('\\')
+                escaped = true
+            elseif b == UInt8('"')
+                in_string = false
+            end
+        elseif b == UInt8('"')
+            in_string = true
+        elseif b == UInt8('[') || b == UInt8('{')
+            depth += 1
+            depth > _MAX_NESTING && return false
+        elseif b == UInt8(']') || b == UInt8('}')
+            depth -= 1
+        end
+    end
+    return true
+end
+
+# `parse(bytes)`, JSON3's reader in `read_ir_json`. JSON3 reports text that is not JSON with
+# an `ArgumentError`, which becomes a `ParseError`; any other exception, an
+# `InterruptException` included, is not about the document and propagates unchanged, as in
+# the JSON decoders of ADR 0015. The parser is an argument so that a test can raise them.
+function _json_parse(parse, bytes, file)
+    try
+        return parse(bytes)
     catch e
+        e isa ArgumentError || rethrow()
         throw(ParseError("invalid JSON: $(sprint(showerror, e))"; file))
     end
+end
+
+"""
+    read_ir_json(io::IO; file="<string>", max_states=65_536, max_table_cells=2^27) -> NetworkIR
+    read_ir_json(path::AbstractString; max_states=65_536, max_table_cells=2^27) -> NetworkIR
+
+Read a `*.bnir.json` file written by [`write_ir_json`](@ref). A leading UTF-8 byte-order
+mark is ignored, as by every reader. Text that is not JSON, a document nested more than 512
+levels deep, a document of the wrong shape, a variable with more than `max_states` states
+and a table with more than `max_table_cells` cells raise [`ParseError`](@ref). Any other
+exception, an interrupt included, propagates unchanged.
+"""
+function read_ir_json(io::IO; file::AbstractString="<string>",
+                      max_states::Integer=DEFAULT_MAX_STATES,
+                      max_table_cells::Integer=DEFAULT_MAX_TABLE_CELLS)
+    _check_limits(max_states, max_table_cells)
+    # The text is parsed as bytes: `JSON3.read` of a `String` shorter than 255 bytes that
+    # names an existing file reads that file instead, so a document whose whole content is
+    # a path would be read from somewhere else.
+    bytes = codeunits(String(strip_bom(read(io, String))))
+    _json_depth_ok(bytes) ||
+        throw(ParseError("the document nests more than $(_MAX_NESTING) levels deep";
+                         file))
+    doc = _json_parse(b -> JSON3.read(b; allow_inf=true), bytes, file)
     _json_require_object(doc, "a bnir document", file)
     get(doc, :format, "") == "bnir" ||
         throw(ParseError("not a bnir document (missing \"format\": \"bnir\")"; file))
@@ -196,12 +256,15 @@ function read_ir_json(io::IO; file::AbstractString="<string>")
         pos === nothing ||
             (pos isa AbstractVector && length(pos) == 2 && all(_json_number, pos)) ||
             throw(ParseError("\"position\" of $(what) must be a pair of numbers"; file))
+        states = _json_strings(v, :states, what, file)
+        _check_states(length(states), what, file, max_states)
         push!(vars,
               IRVariable(String(id);
                          title=_json_get(v, :title, AbstractString, what, file; default=""),
-                         kind, states=_json_strings(v, :states, what, file),
+                         kind, states,
                          parents=Symbol.(_json_strings(v, :parents, what, file)),
-                         table=_json_table(get(v, :table, nothing), id, file),
+                         table=_json_table(get(v, :table, nothing), id, file,
+                                           max_table_cells),
                          deterministic=_json_get(v, :deterministic, Bool, what, file;
                                                  default=false),
                          position=pos === nothing ? nothing :
@@ -229,4 +292,6 @@ function read_ir_json(io::IO; file::AbstractString="<string>")
                      extras=_json_extras(get(doc, :extras, nothing), "the document", file))
 end
 
-read_ir_json(path::AbstractString) = open(io -> read_ir_json(io; file=path), path)
+function read_ir_json(path::AbstractString; kwargs...)
+    return open(io -> read_ir_json(io; file=path, kwargs...), path)
+end

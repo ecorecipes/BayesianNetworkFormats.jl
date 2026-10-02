@@ -76,18 +76,25 @@ struct _NetPotential
 end
 
 """
-    read_net(io::IO; file="<string>", strict=true, atol=1e-6, renormalize=false) -> NetworkIR
+    read_net(io::IO; file="<string>", strict=true, atol=1e-6, renormalize=false,
+             max_states=65_536, max_table_cells=2^27) -> NetworkIR
 
 Parse a HUGIN `.net` file. See [`HuginNET`](@ref).
 
 The grammar is the NET language of the HUGIN API reference manual [HuginNET](@cite): the
 `data` of a `potential` is row-major over `(parents..., child)` with the child fastest and
 one parenthesis level per parent, and the nesting is ignored when reading.
+
+A node with more than `max_states` states, or a potential with more than
+`max_table_cells` cells, raises [`ParseError`](@ref) before its table is allocated, as do
+brackets nested more than 512 levels deep, before they are parsed.
 """
 function read_net(io::IO; file::AbstractString="<string>", strict::Bool=true,
                   atol::Real=1e-6,
-                  renormalize::Bool=false)
-    ts = TokenStream(read(io, String), NET_TOKENS; file)
+                  renormalize::Bool=false, max_states::Integer=DEFAULT_MAX_STATES,
+                  max_table_cells::Integer=DEFAULT_MAX_TABLE_CELLS)
+    _check_limits(max_states, max_table_cells)
+    ts = check_nesting(TokenStream(read(io, String), NET_TOKENS; file))
     name = ""
     skipped = Dict{String,Any}[]
     nodeinfo = Pair{Symbol,Tuple{NodeKind,Vector{Pair{String,Any}}}}[]
@@ -149,6 +156,7 @@ function read_net(io::IO; file::AbstractString="<string>", strict::Bool=true,
                              file=ts.file))
         states_of[id] = kind == UtilityNode ? String[] :
                         String[_net_state(s) for s in states]
+        _check_states(length(states_of[id]), "node $(id)", ts.file, max_states)
     end
     pots = Dict{Symbol,_NetPotential}()
     for p in potentials
@@ -189,8 +197,9 @@ function read_net(io::IO; file::AbstractString="<string>", strict::Bool=true,
             if data !== nothing
                 vals = _flatten_numbers(data, id, file)
                 dims = kind == ChanceNode ? (pdims..., length(states)) : pdims
-                length(vals) == prod(dims; init=1) ||
-                    throw(ParseError("data of potential ($(id) | $(join(parents, ' '))) has $(length(vals)) entries; expected $(prod(dims; init=1))";
+                n = _table_length(dims, "the potential of $(id)", file; max_table_cells)
+                length(vals) == n ||
+                    throw(ParseError("data of potential ($(id) | $(join(parents, ' '))) has $(length(vals)) entries; expected $(n)";
                                      file))
                 table = from_rowmajor(vals, dims)
             end
