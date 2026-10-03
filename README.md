@@ -104,9 +104,14 @@ Gzip-compressed files from the bnlearn repository must be decompressed first
 
 ## Vignettes
 
-Rendered vignettes live in [`vignettes/`](vignettes/) and are published in the
-[documentation](https://ecorecipes.github.io/BayesianNetworkFormats.jl/):
-reading and writing networks, axis conventions, and influence-diagram files.
+| # | Vignette | Description |
+|---|---|---|
+| 1 | [Reading and writing networks](https://github.com/ecorecipes/BayesianNetworkFormats.jl/blob/main/vignettes/01_reading_and_writing_networks/01_reading_and_writing_networks.md) | The intermediate representation, one model across formats, writing, format detection and strict mode |
+| 2 | [Axis conventions](https://github.com/ecorecipes/BayesianNetworkFormats.jl/blob/main/vignettes/02_axis_conventions/02_axis_conventions.md) | How Netica, GeNIe, HUGIN, UAI, BIF and DSC lay out conditional probability tables |
+| 3 | [Influence diagram files](https://github.com/ecorecipes/BayesianNetworkFormats.jl/blob/main/vignettes/03_influence_diagram_files/03_influence_diagram_files.md) | Decisions, information arcs and utilities in influence-diagram files, and writing them from Julia |
+
+Each vignette is also published as a tutorial in the [documentation](https://ecorecipes.github.io/BayesianNetworkFormats.jl/);
+the sources are the `.qmd` files in [`vignettes/`](vignettes/).
 
 ## References
 
