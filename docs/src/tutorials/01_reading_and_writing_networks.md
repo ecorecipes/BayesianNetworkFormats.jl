@@ -276,9 +276,13 @@ files entry by entry.
 
 ## References
 
+```@raw html
 <div id="refs" class="references csl-bib-body hanging-indent">
+```
 
+```@raw html
 <div id="ref-LauritzenSpiegelhalter1988" class="csl-entry">
+```
 
 Lauritzen, Steffen L., and David J. Spiegelhalter. 1988. “Local
 Computations with Probabilities on Graphical Structures and Their
@@ -286,21 +290,33 @@ Application to Expert Systems.” *Journal of the Royal Statistical
 Society, Series B* 50 (2): 157–224.
 <https://doi.org/10.1111/j.2517-6161.1988.tb01721.x>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-NeticaFileFormats" class="csl-entry">
+```
 
 Norsys Software Corp. 2024. *Netica File Formats*.
 <https://www.norsys.com/WebHelp/NETICA/X_File_Formats.htm>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-Scutari2010" class="csl-entry">
+```
 
 Scutari, Marco. 2010. “Learning Bayesian Networks with the
-<span class="nocase">bnlearn</span> R Package.” *Journal of Statistical
+bnlearn R Package.” *Journal of Statistical
 Software* 35 (3): 1–22. <https://doi.org/10.18637/jss.v035.i03>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 </div>
+```

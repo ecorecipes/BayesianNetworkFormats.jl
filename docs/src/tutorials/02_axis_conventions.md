@@ -231,7 +231,7 @@ variable(chest, :X7).parents, round.(marginal(chest, :X7); digits=5)
 
 Both files are recorded with their origin and licence in
 `test/fixtures/LICENSES.md`. The Netica-written BNMA models ([BNMA
-2026](#ref-BNMA); [<span class="nocase">Kotalik et al.</span>
+2026](#ref-BNMA); [Kotalik et al.
 2026](#ref-Kotalik2026)) in `EcologicalBayesianNetworks.jl/models/` play
 the same role for `.dne`: the test suite reads them, with their `#k`
 findings and `levels` ([Norsys Software Corp.
@@ -385,55 +385,83 @@ their parents.
 
 ## References
 
+```@raw html
 <div id="refs" class="references csl-bib-body hanging-indent">
+```
 
+```@raw html
 <div id="ref-GeNIeDocs" class="csl-entry">
+```
 
 BayesFusion, LLC. 2025. *GeNIe Modeler and SMILE Engine Documentation*.
 <https://support.bayesfusion.com/docs/>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-BNMA" class="csl-entry">
+```
 
 BNMA. 2026. *The Bayesian Network Model Archive*.
 <https://bnma.co/bnrepo/>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-Cozman1998" class="csl-entry">
+```
 
 Cozman, Fabio Gagliardi. 1998. *The Interchange Format for Bayesian
 Networks, Version 0.15*. Carnegie Mellon University.
 <http://www.cs.cmu.edu/~fgcozman/Research/InterchangeFormat/>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-HuginNET" class="csl-entry">
+```
 
 HUGIN EXPERT A/S. 2024. *HUGIN API Reference Manual: The NET Language*.
 <https://download.hugin.com/webdocs/manuals/api-manual.pdf>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-Kadie2001" class="csl-entry">
+```
 
 Kadie, Carl M., David Hovel, and Eric Horvitz. 2001. *MSBNx: A
 Component-Centric Toolkit for Modeling and Inference with Bayesian
 Networks*. MSR-TR-2001-67. Microsoft Research.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-Kotalik2026" class="csl-entry">
+```
 
-<span class="nocase">Kotalik, Christopher J., Freya E. Rowland, Bruce G.
-Marcot, et al.</span> 2026. “Causal Networks to Inform Decisions for
+Kotalik, Christopher J., Freya E. Rowland, Bruce G.
+Marcot, et al. 2026. “Causal Networks to Inform Decisions for
 Ecological Restoration.” *Environmental Management* 76 (7).
 <https://doi.org/10.59381/ofwegrfqyo>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-LauritzenSpiegelhalter1988" class="csl-entry">
+```
 
 Lauritzen, Steffen L., and David J. Spiegelhalter. 1988. “Local
 Computations with Probabilities on Graphical Structures and Their
@@ -441,28 +469,44 @@ Application to Expert Systems.” *Journal of the Royal Statistical
 Society, Series B* 50 (2): 157–224.
 <https://doi.org/10.1111/j.2517-6161.1988.tb01721.x>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-NeticaFileFormats" class="csl-entry">
+```
 
 Norsys Software Corp. 2024. *Netica File Formats*.
 <https://www.norsys.com/WebHelp/NETICA/X_File_Formats.htm>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-Scutari2010" class="csl-entry">
+```
 
 Scutari, Marco. 2010. “Learning Bayesian Networks with the
-<span class="nocase">bnlearn</span> R Package.” *Journal of Statistical
+bnlearn R Package.” *Journal of Statistical
 Software* 35 (3): 1–22. <https://doi.org/10.18637/jss.v035.i03>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-UAIFormat" class="csl-entry">
+```
 
 UAI Inference Competition. 2022. *Model File Format*.
 <https://uaicompetition.github.io/uci-2022/file-formats/model-format/>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 </div>
+```

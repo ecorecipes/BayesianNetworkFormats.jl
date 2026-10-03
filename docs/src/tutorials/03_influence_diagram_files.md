@@ -396,41 +396,65 @@ networks*.
 
 ## References
 
+```@raw html
 <div id="refs" class="references csl-bib-body hanging-indent">
+```
 
+```@raw html
 <div id="ref-GeNIeDocs" class="csl-entry">
+```
 
 BayesFusion, LLC. 2025. *GeNIe Modeler and SMILE Engine Documentation*.
 <https://support.bayesfusion.com/docs/>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-HuginNET" class="csl-entry">
+```
 
 HUGIN EXPERT A/S. 2024. *HUGIN API Reference Manual: The NET Language*.
 <https://download.hugin.com/webdocs/manuals/api-manual.pdf>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-NeticaFileFormats" class="csl-entry">
+```
 
 Norsys Software Corp. 2024. *Netica File Formats*.
 <https://www.norsys.com/WebHelp/NETICA/X_File_Formats.htm>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-Raiffa1968" class="csl-entry">
+```
 
 Raiffa, Howard. 1968. *Decision Analysis: Introductory Lectures on
 Choices Under Uncertainty*. Addison-Wesley.
 
+```@raw html
 </div>
+```
 
+```@raw html
 <div id="ref-Shachter1986" class="csl-entry">
+```
 
 Shachter, Ross D. 1986. “Evaluating Influence Diagrams.” *Operations
 Research* 34 (6): 871–82. <https://doi.org/10.1287/opre.34.6.871>.
 
+```@raw html
 </div>
+```
 
+```@raw html
 </div>
+```
